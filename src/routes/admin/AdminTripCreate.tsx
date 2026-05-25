@@ -2,8 +2,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { useState, type FormEvent } from 'react'
 import { adminApi } from '../../api/arrivalos'
-import { withFixtureFallback } from '../../api/fallback'
-import { fixtureConcierges, defaultCheckpoints } from '../../data/fixtures'
+import { defaultCheckpoints } from '../../data/fixtures'
 import { ApiErrorMessage, SectionHeader } from '../../components/Primitives'
 
 type Step = 'details' | 'principals' | 'recipients' | 'operations'
@@ -24,7 +23,7 @@ export function AdminTripCreatePage() {
   const [checkpoints, setCheckpoints] = useState(defaultCheckpoints.map((checkpoint) => checkpoint.name).join('\n'))
   const conciergesQuery = useQuery({
     queryKey: ['admin', 'concierges', 'trip-create'],
-    queryFn: () => withFixtureFallback(adminApi.concierges, fixtureConcierges),
+    queryFn: adminApi.concierges,
   })
   const createTrip = useMutation({
     mutationFn: () => adminApi.createTrip({
@@ -66,7 +65,6 @@ export function AdminTripCreatePage() {
             <label className="field"><span>Arrival terminal</span><input value={arrivalTerminal} onChange={(event) => setArrivalTerminal(event.target.value)} /></label>
             <label className="field"><span>Scheduled arrival time</span><input type="datetime-local" value={scheduledArrivalAt} onChange={(event) => setScheduledArrivalAt(event.target.value)} /></label>
             <label className="field full-span"><span>Meeting point</span><input value={meetingPoint} onChange={(event) => setMeetingPoint(event.target.value)} placeholder="Arrivals hall, left of the currency exchange desk" /></label>
-            <p className="form-hint full-span">Backend persistence for meeting point is expected in the trip DTO. Until then, the frontend sends the field and warns admins when the API returns it as missing.</p>
           </section>
         )}
         {step === 'principals' && (

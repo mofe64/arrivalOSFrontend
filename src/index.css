@@ -271,6 +271,27 @@ button:focus-visible, a:focus-visible {
   gap: 18px;
 }
 .section-header h1 { font-size: clamp(38px, 4vw, 56px); line-height: 0.95; }
+.admin-workspace > .section-header h1 {
+  font-size: clamp(34px, 3.2vw, 46px);
+  line-height: 1;
+}
+.section-kpis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.section-kpis span {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--panel) 72%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 850;
+}
 .table-heading, .panel-heading { padding: 20px 22px; border-bottom: 1px solid var(--line); }
 .panel-heading { align-items: center; padding: 0 0 16px; }
 .table-heading h2, .panel-heading h2, .ops-panel h2, .info-panel h2, .detail-card h2 {
@@ -357,6 +378,77 @@ tbody tr:hover { background: color-mix(in srgb, var(--action-blue) 5%, transpare
   grid-template-columns: minmax(260px, 0.45fr) minmax(0, 1fr);
   gap: 18px;
   align-items: start;
+}
+.concierge-admin-grid {
+  display: grid;
+  grid-template-columns: minmax(300px, 400px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+.concierge-create-panel {
+  position: sticky;
+  top: 24px;
+}
+.concierge-create-panel h2 {
+  font-size: 28px;
+}
+.concierge-directory-panel {
+  display: grid;
+  gap: 16px;
+}
+.operator-list {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  list-style: none;
+}
+.operator-row {
+  display: grid;
+  grid-template-columns: 44px minmax(180px, 1fr) minmax(150px, 0.55fr) auto;
+  gap: 14px;
+  align-items: center;
+  min-height: 68px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 48%, white);
+}
+.operator-row strong,
+.operator-row span {
+  min-width: 0;
+}
+.operator-row small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+.operator-avatar {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  color: var(--ivory);
+  background: var(--primary-navy);
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 850;
+}
+.operator-row mark {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 12%, transparent);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+}
+.operator-row mark[data-status='active'] {
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 13%, transparent);
 }
 .record-list { display: grid; gap: 8px; }
 .record-list button {
@@ -496,7 +588,8 @@ tbody tr:hover { background: color-mix(in srgb, var(--action-blue) 5%, transpare
 }
 
 @media (max-width: 1080px) {
-  .detail-main, .detail-grid, .principal-detail-grid, .two-column { grid-template-columns: 1fr; }
+  .detail-main, .detail-grid, .principal-detail-grid, .two-column, .concierge-admin-grid { grid-template-columns: 1fr; }
+  .concierge-create-panel { position: static; }
   .concierge-command { grid-template-columns: 1fr; }
   .metric-row { grid-template-columns: 1fr; }
   .status-band { grid-template-columns: 1fr; }
@@ -538,4 +631,10 @@ tbody tr:hover { background: color-mix(in srgb, var(--action-blue) 5%, transpare
   .wizard-actions { flex-direction: column; }
   .compact-dl div { flex-direction: column; }
   .compact-dl dd { text-align: left; }
+  .operator-row {
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+  }
+  .operator-row > span:not(.operator-avatar) {
+    grid-column: 2 / -1;
+  }
 }

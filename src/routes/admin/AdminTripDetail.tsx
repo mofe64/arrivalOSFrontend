@@ -4,7 +4,7 @@ import { useState, type FormEvent } from 'react'
 import { adminApi } from '../../api/arrivalos'
 import { withFixtureFallback } from '../../api/fallback'
 import type { ConciergeAccessLink, TimelineEventType, TripStatus } from '../../api/types'
-import { fixtureAdminTripDetail, fixtureConcierges } from '../../data/fixtures'
+import { fixtureAdminTripDetail } from '../../data/fixtures'
 import {
   CheckpointTimeline,
   ConciergeIdentityCard,
@@ -26,7 +26,7 @@ export function AdminTripDetailPage() {
   })
   const conciergesQuery = useQuery({
     queryKey: ['admin', 'concierges'],
-    queryFn: () => withFixtureFallback(adminApi.concierges, fixtureConcierges),
+    queryFn: adminApi.concierges,
   })
   const trip = tripQuery.data
   const invalidateTrip = () => {

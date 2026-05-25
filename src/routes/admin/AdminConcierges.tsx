@@ -1,10 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 import { adminApi } from '../../api/arrivalos'
-import { withFixtureFallback } from '../../api/fallback'
-import { fixtureConcierges } from '../../data/fixtures'
 import { ApiErrorMessage, EmptyState, LoadingState, SectionHeader } from '../../components/Primitives'
-import { ConciergeIdentityCard } from '../../components/ArrivalComponents'
 
 export function AdminConciergesPage() {
   const queryClient = useQueryClient()
@@ -14,10 +11,18 @@ export function AdminConciergesPage() {
   const [photoUrl, setPhotoUrl] = useState('')
   const conciergesQuery = useQuery({
     queryKey: ['admin', 'concierges'],
-    queryFn: () => withFixtureFallback(adminApi.concierges, fixtureConcierges),
+    queryFn: adminApi.concierges,
   })
+  const concierges = conciergesQuery.data ?? []
+  const activeCount = concierges.filter((concierge) => concierge.active).length
   const create = useMutation({
-    mutationFn: () => adminApi.createConcierge({ fullName, phone, publicId, photoUrl }),
+    mutationFn: () =>
+      adminApi.createConcierge({
+        fullName: fullName.trim(),
+        phone: phone.trim(),
+        publicId: publicId.trim(),
+        photoUrl: photoUrl.trim() || undefined,
+      }),
     onSuccess: () => {
       setFullName('')
       setPhone('')
@@ -34,31 +39,65 @@ export function AdminConciergesPage() {
 
   return (
     <>
-      <SectionHeader eyebrow="Concierges" title="Field operator records" />
-      <section className="two-column">
-        <form className="ops-panel stack-form" onSubmit={handleSubmit}>
-          <h2>Create concierge</h2>
-          <p className="muted-copy">Concierges do not log in. They use trip-scoped access links issued from a trip detail page.</p>
+      <SectionHeader eyebrow="Concierges" title="Field operators">
+        <div className="section-kpis" aria-label="Concierge record counts">
+          <span>{activeCount} active</span>
+          <span>{concierges.length} total</span>
+        </div>
+      </SectionHeader>
+      <section className="concierge-admin-grid">
+        <form className="ops-panel stack-form concierge-create-panel" onSubmit={handleSubmit}>
+          <h2>Create field operator</h2>
+          <p className="muted-copy">Create the operational record first. Trip-scoped access links are issued from trip detail pages.</p>
           <ApiErrorMessage error={create.error} />
-          <label className="field"><span>Full name</span><input value={fullName} onChange={(event) => setFullName(event.target.value)} /></label>
-          <label className="field"><span>Phone</span><input value={phone} onChange={(event) => setPhone(event.target.value)} /></label>
+          <label className="field"><span>Operator name</span><input value={fullName} onChange={(event) => setFullName(event.target.value)} /></label>
+          <label className="field"><span>Mobile phone</span><input value={phone} onChange={(event) => setPhone(event.target.value)} /></label>
           <label className="field"><span>Public ID</span><input value={publicId} onChange={(event) => setPublicId(event.target.value)} placeholder="GGS-NAME" /></label>
           <label className="field"><span>Photo URL</span><input value={photoUrl} onChange={(event) => setPhotoUrl(event.target.value)} /></label>
-          <button className="primary-button" disabled={!fullName || !phone || !publicId || create.isPending} type="submit">Create concierge</button>
+          <button className="primary-button" disabled={!fullName.trim() || !phone.trim() || !publicId.trim() || create.isPending} type="submit">
+            {create.isPending ? 'Creating...' : 'Create operator'}
+          </button>
         </form>
-        <section className="ops-panel">
-          <div className="panel-heading"><h2>Concierge list</h2><span>API backed</span></div>
-          {conciergesQuery.isLoading && <LoadingState />}
-          <ApiErrorMessage error={conciergesQuery.error} />
-          {(conciergesQuery.data ?? []).length === 0 ? (
-            <EmptyState title="Concierge list API pending" body="Creation is supported. The list will populate when the backend list endpoint is available." />
-          ) : (
-            <div className="identity-list">
-              {(conciergesQuery.data ?? []).map((concierge) => <ConciergeIdentityCard concierge={concierge} key={concierge.id} />)}
+        <section className="ops-panel concierge-directory-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Directory</p>
+              <h2>Operator records</h2>
             </div>
+            <span>{conciergesQuery.isFetching ? 'Syncing' : 'Live records'}</span>
+          </div>
+          {conciergesQuery.isLoading && <LoadingState label="Loading field operators" />}
+          <ApiErrorMessage error={conciergesQuery.error} />
+          {!conciergesQuery.isLoading && concierges.length === 0 ? (
+            <EmptyState title="No concierges yet" body="Create the first field operator here, then assign them to an arrival from the trip detail page." />
+          ) : (
+            <ul className="operator-list">
+              {concierges.map((concierge) => (
+                <li className="operator-row" key={concierge.id}>
+                  <span className="operator-avatar" aria-hidden="true">{initials(concierge.fullName)}</span>
+                  <div>
+                    <strong>{concierge.fullName}</strong>
+                    <small>{concierge.publicId}</small>
+                  </div>
+                  <span>{concierge.phone}</span>
+                  <mark data-status={concierge.active ? 'active' : 'inactive'}>
+                    {concierge.active ? 'Active' : 'Inactive'}
+                  </mark>
+                </li>
+              ))}
+            </ul>
           )}
         </section>
       </section>
     </>
   )
+}
+
+function initials(name: string) {
+  return name
+    .split(' ')
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
 }
