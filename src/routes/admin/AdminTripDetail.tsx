@@ -3,7 +3,7 @@ import { useParams } from '@tanstack/react-router'
 import { useState, type FormEvent } from 'react'
 import { adminApi } from '../../api/arrivalos'
 import { withFixtureFallback } from '../../api/fallback'
-import type { ConciergeAccessLink, TimelineEventType, TripStatus } from '../../api/types'
+import type { AdminPrincipalSummary, Concierge, ConciergeAccessLink, TimelineEventType, TripStatus } from '../../api/types'
 import { fixtureAdminTripDetail } from '../../data/fixtures'
 import {
   CheckpointTimeline,
@@ -16,6 +16,7 @@ import {
 import { ApiErrorMessage, LoadingState } from '../../components/Primitives'
 import { shortDateTime, statusLabel } from '../../components/format'
 import { eventOptions, isClosedStatus, nextEventForStatus } from '../../components/tripFlow'
+import { PrincipalLinkFields, type PrincipalEntryMode } from './PrincipalLinkFields'
 
 export function AdminTripDetailPage() {
   const { tripId } = useParams({ from: '/admin/trips/$tripId' })
@@ -27,6 +28,10 @@ export function AdminTripDetailPage() {
   const conciergesQuery = useQuery({
     queryKey: ['admin', 'concierges'],
     queryFn: adminApi.concierges,
+  })
+  const principalsQuery = useQuery({
+    queryKey: ['admin', 'principals', 'trip-detail'],
+    queryFn: adminApi.principals,
   })
   const trip = tripQuery.data
   const invalidateTrip = () => {
@@ -45,7 +50,7 @@ export function AdminTripDetailPage() {
     onSuccess: invalidateTrip,
   })
   const addPrincipal = useMutation({
-    mutationFn: (payload: { fullName: string; phone?: string }) => adminApi.addPrincipal(tripId, payload),
+    mutationFn: (payload: { fullName?: string; phone?: string; userAccountId?: string }) => adminApi.addPrincipal(tripId, payload),
     onSuccess: invalidateTrip,
   })
   const assign = useMutation({
@@ -64,6 +69,12 @@ export function AdminTripDetailPage() {
   if (!trip) return <ApiErrorMessage error={tripQuery.error} />
 
   const closed = isClosedStatus(trip.status)
+  const linkedPrincipalAccountIds = new Set(
+    trip.principals.map((principal) => principal.userAccountId).filter(Boolean),
+  )
+  const availablePrincipals = (principalsQuery.data ?? []).filter(
+    (principal) => !linkedPrincipalAccountIds.has(principal.id),
+  )
 
   return (
     <div className="detail-layout">
@@ -117,6 +128,9 @@ export function AdminTripDetailPage() {
           addEventError={addEvent.error}
           addPrincipal={(payload) => addPrincipal.mutate(payload)}
           addPrincipalError={addPrincipal.error}
+          availablePrincipals={availablePrincipals}
+          principalDirectoryError={principalsQuery.error}
+          principalDirectoryLoading={principalsQuery.isLoading}
           addWatcher={(payload) => addWatcher.mutate(payload)}
           addWatcherError={addWatcher.error}
           assignConcierge={(conciergeId) => assign.mutate(conciergeId)}
@@ -159,6 +173,9 @@ function AdminActions({
   addEventError,
   addPrincipal,
   addPrincipalError,
+  availablePrincipals,
+  principalDirectoryError,
+  principalDirectoryLoading,
   addWatcher,
   addWatcherError,
   assignConcierge,
@@ -177,8 +194,11 @@ function AdminActions({
   addEvent: (eventType: TimelineEventType, note?: string, checkpointName?: string) => void
   addEventPending: boolean
   addEventError: unknown
-  addPrincipal: (payload: { fullName: string; phone?: string }) => void
+  addPrincipal: (payload: { fullName?: string; phone?: string; userAccountId?: string }) => void
   addPrincipalError: unknown
+  availablePrincipals: AdminPrincipalSummary[]
+  principalDirectoryError: unknown
+  principalDirectoryLoading: boolean
   addWatcher: (payload: { fullName: string; email: string }) => void
   addWatcherError: unknown
   assignConcierge: (conciergeId: string) => void
@@ -186,7 +206,7 @@ function AdminActions({
   cancelTrip: (note: string) => void
   cancelError: unknown
   conciergeId?: string
-  concierges: Array<{ id: string; fullName: string }>
+  concierges: Concierge[]
   currentCheckpointName?: string
   disabled: boolean
   issueAccessLink: (conciergeId: string) => void
@@ -198,6 +218,8 @@ function AdminActions({
   const [eventType, setEventType] = useState<TimelineEventType>(suggestedEvent?.eventType ?? 'CONCIERGE_IN_POSITION')
   const [checkpointName, setCheckpointName] = useState(currentCheckpointName ?? '')
   const [note, setNote] = useState('')
+  const [principalMode, setPrincipalMode] = useState<PrincipalEntryMode>('existing')
+  const [selectedPrincipalId, setSelectedPrincipalId] = useState('')
   const [principalName, setPrincipalName] = useState('')
   const [principalPhone, setPrincipalPhone] = useState('')
   const [watcherName, setWatcherName] = useState('')
@@ -205,6 +227,9 @@ function AdminActions({
   const [watcherValidation, setWatcherValidation] = useState('')
   const [selectedConcierge, setSelectedConcierge] = useState(conciergeId ?? '')
   const selectedEvent = eventOptions.find((option) => option.eventType === eventType)
+  const selectedPrincipalStillAvailable = availablePrincipals.some((principal) => principal.id === selectedPrincipalId)
+  const effectiveSelectedPrincipalId = selectedPrincipalStillAvailable ? selectedPrincipalId : availablePrincipals[0]?.id ?? ''
+  const canSubmitPrincipal = principalMode === 'existing' ? Boolean(effectiveSelectedPrincipalId) : Boolean(principalName.trim())
 
   function submitEvent(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -226,6 +251,11 @@ function AdminActions({
   }
 
   function submitPrincipal() {
+    if (principalMode === 'existing') {
+      if (!effectiveSelectedPrincipalId) return
+      addPrincipal({ userAccountId: effectiveSelectedPrincipalId })
+      return
+    }
     if (!principalName.trim()) return
     addPrincipal({ fullName: principalName.trim(), phone: principalPhone.trim() || undefined })
   }
@@ -256,12 +286,31 @@ function AdminActions({
         <button className="primary-button" disabled={disabled || addEventPending || Boolean(selectedEvent?.checkpointRequired && !checkpointName.trim())} type="submit">Submit timeline event</button>
       </form>
 
-      <div className="inline-form">
+      <section className="principal-action-block">
         <ApiErrorMessage error={addPrincipalError} />
-        <input aria-label="Principal name" placeholder="Principal name" value={principalName} onChange={(event) => setPrincipalName(event.target.value)} />
-        <input aria-label="Principal phone" placeholder="Phone optional" value={principalPhone} onChange={(event) => setPrincipalPhone(event.target.value)} />
-        <button disabled={disabled || !principalName.trim()} type="button" onClick={submitPrincipal}>Add principal</button>
-      </div>
+        <PrincipalLinkFields
+          availablePrincipals={availablePrincipals}
+          disabled={disabled}
+          error={principalDirectoryError}
+          loading={principalDirectoryLoading}
+          manualName={principalName}
+          manualPhone={principalPhone}
+          mode={principalMode}
+          onManualNameChange={setPrincipalName}
+          onManualPhoneChange={setPrincipalPhone}
+          onModeChange={setPrincipalMode}
+          onSelectedPrincipalIdChange={setSelectedPrincipalId}
+          selectedPrincipalId={effectiveSelectedPrincipalId}
+        />
+        <button
+          className="secondary-button"
+          disabled={disabled || !canSubmitPrincipal}
+          type="button"
+          onClick={submitPrincipal}
+        >
+          {principalMode === 'existing' ? 'Link principal account' : 'Add manual principal'}
+        </button>
+      </section>
 
       <div className="inline-form">
         <ApiErrorMessage error={addWatcherError} />
@@ -275,8 +324,8 @@ function AdminActions({
         <ApiErrorMessage error={assignError} />
         <ApiErrorMessage error={issueAccessLinkError} />
         <select aria-label="Assign concierge" value={selectedConcierge} onChange={(event) => setSelectedConcierge(event.target.value)}>
-          <option value="">Select concierge</option>
-          {concierges.map((concierge) => <option key={concierge.id} value={concierge.id}>{concierge.fullName}</option>)}
+          <option value="">Select linked concierge record</option>
+          {concierges.map((concierge) => <option key={concierge.id} value={concierge.id}>{concierge.fullName} · {concierge.publicId}</option>)}
         </select>
         <button disabled={disabled || !selectedConcierge} type="button" onClick={() => assignConcierge(selectedConcierge)}>Assign/change</button>
         <button disabled={disabled || !selectedConcierge} type="button" onClick={() => issueAccessLink(selectedConcierge)}>Issue access link</button>

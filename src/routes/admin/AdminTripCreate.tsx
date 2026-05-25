@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react'
 import { adminApi } from '../../api/arrivalos'
 import { defaultCheckpoints } from '../../data/fixtures'
 import { ApiErrorMessage, SectionHeader } from '../../components/Primitives'
+import { PrincipalLinkFields, type PrincipalEntryMode } from './PrincipalLinkFields'
 
 type Step = 'details' | 'principals' | 'recipients' | 'operations'
 
@@ -15,16 +16,28 @@ export function AdminTripCreatePage() {
   const [arrivalTerminal, setArrivalTerminal] = useState('')
   const [meetingPoint, setMeetingPoint] = useState('')
   const [scheduledArrivalAt, setScheduledArrivalAt] = useState('')
+  const [principalMode, setPrincipalMode] = useState<PrincipalEntryMode>('existing')
+  const [selectedPrincipalId, setSelectedPrincipalId] = useState('')
   const [principalName, setPrincipalName] = useState('')
   const [principalPhone, setPrincipalPhone] = useState('')
   const [watcherName, setWatcherName] = useState('')
   const [watcherEmail, setWatcherEmail] = useState('')
   const [conciergeId, setConciergeId] = useState('')
   const [checkpoints, setCheckpoints] = useState(defaultCheckpoints.map((checkpoint) => checkpoint.name).join('\n'))
+  const principalsQuery = useQuery({
+    queryKey: ['admin', 'principals', 'trip-create'],
+    queryFn: adminApi.principals,
+  })
   const conciergesQuery = useQuery({
     queryKey: ['admin', 'concierges', 'trip-create'],
     queryFn: adminApi.concierges,
   })
+  const principals = principalsQuery.data ?? []
+  const selectedPrincipalStillAvailable = principals.some((principal) => principal.id === selectedPrincipalId)
+  const effectiveSelectedPrincipalId = selectedPrincipalStillAvailable ? selectedPrincipalId : principals[0]?.id ?? ''
+  const selectedConcierge = (conciergesQuery.data ?? []).find((concierge) => concierge.id === conciergeId)
+  const principalReady = principalMode === 'existing' ? Boolean(effectiveSelectedPrincipalId) : Boolean(principalName.trim())
+
   const createTrip = useMutation({
     mutationFn: () => adminApi.createTrip({
       flightNumber: flightNumber.trim(),
@@ -32,7 +45,11 @@ export function AdminTripCreatePage() {
       arrivalTerminal: arrivalTerminal.trim() || undefined,
       meetingPoint: meetingPoint.trim() || undefined,
       scheduledArrivalAt: scheduledArrivalAt ? new Date(scheduledArrivalAt).toISOString() : undefined,
-      principals: [{ fullName: principalName.trim(), phone: principalPhone.trim() || undefined, primaryContact: true }],
+      principals: [
+        principalMode === 'existing' && effectiveSelectedPrincipalId
+          ? { userAccountId: effectiveSelectedPrincipalId, primaryContact: true }
+          : { fullName: principalName.trim(), phone: principalPhone.trim() || undefined, primaryContact: true },
+      ],
       watchers: watcherEmail ? [{ fullName: watcherName.trim() || watcherEmail.trim(), email: watcherEmail.trim() }] : [],
       assignedConciergeId: conciergeId || undefined,
       checkpoints: checkpoints.split('\n').map((name) => name.trim()).filter(Boolean).map((name) => ({ name })),
@@ -69,9 +86,20 @@ export function AdminTripCreatePage() {
         )}
         {step === 'principals' && (
           <section className="form-grid">
-            <label className="field"><span>Principal name</span><input value={principalName} onChange={(event) => setPrincipalName(event.target.value)} /></label>
-            <label className="field"><span>Principal phone</span><input value={principalPhone} onChange={(event) => setPrincipalPhone(event.target.value)} /></label>
-            <p className="form-hint">A trip can support multiple principals in the backend. This MVP form starts with the primary contact; additional principals can be added from the trip detail view.</p>
+            <PrincipalLinkFields
+              availablePrincipals={principals}
+              error={principalsQuery.error}
+              loading={principalsQuery.isLoading}
+              manualName={principalName}
+              manualPhone={principalPhone}
+              mode={principalMode}
+              onManualNameChange={setPrincipalName}
+              onManualPhoneChange={setPrincipalPhone}
+              onModeChange={setPrincipalMode}
+              onSelectedPrincipalIdChange={setSelectedPrincipalId}
+              selectedPrincipalId={effectiveSelectedPrincipalId}
+            />
+            <p className="form-hint full-span">Linked accounts keep the principal portal, watcher visibility, and trip history tied to one trusted identity.</p>
           </section>
         )}
         {step === 'recipients' && (
@@ -84,7 +112,18 @@ export function AdminTripCreatePage() {
         {step === 'operations' && (
           <section className="form-grid">
             <div className="full-span"><ApiErrorMessage error={conciergesQuery.error} /></div>
-            <label className="field"><span>Concierge assignment</span><select value={conciergeId} onChange={(event) => setConciergeId(event.target.value)}><option value="">Assign later</option>{(conciergesQuery.data ?? []).map((concierge) => <option key={concierge.id} value={concierge.id}>{concierge.fullName}</option>)}</select></label>
+            <label className="field"><span>Linked concierge record</span><select value={conciergeId} onChange={(event) => setConciergeId(event.target.value)}><option value="">Assign later</option>{(conciergesQuery.data ?? []).map((concierge) => <option key={concierge.id} value={concierge.id}>{concierge.fullName} · {concierge.publicId}</option>)}</select></label>
+            {selectedConcierge && (
+              <aside className="principal-account-preview">
+                <p className="eyebrow">Operator record</p>
+                <strong>{selectedConcierge.fullName}</strong>
+                <dl>
+                  <div><dt>Public ID</dt><dd>{selectedConcierge.publicId}</dd></div>
+                  <div><dt>Phone</dt><dd>{selectedConcierge.phone}</dd></div>
+                  <div><dt>Status</dt><dd>{selectedConcierge.active ? 'Active' : 'Inactive'}</dd></div>
+                </dl>
+              </aside>
+            )}
             <label className="field full-span"><span>Default checkpoint list</span><textarea rows={8} value={checkpoints} onChange={(event) => setCheckpoints(event.target.value)} /></label>
           </section>
         )}
@@ -92,7 +131,7 @@ export function AdminTripCreatePage() {
         <div className="wizard-actions">
           <button className="secondary-button" type="button" onClick={() => setStep(previousStep(step))}>Back</button>
           {step === 'operations' ? (
-            <button className="primary-button" disabled={!flightNumber || !arrivalAirport || !principalName || createTrip.isPending} type="submit">
+            <button className="primary-button" disabled={!flightNumber || !arrivalAirport || !principalReady || createTrip.isPending} type="submit">
               {createTrip.isPending ? 'Creating...' : 'Create trip'}
             </button>
           ) : (

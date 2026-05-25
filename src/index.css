@@ -470,6 +470,87 @@ tbody tr:hover { background: color-mix(in srgb, var(--action-blue) 5%, transpare
 .wizard-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 .inline-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .inline-form .api-error, .inline-form .warning-note { grid-column: 1 / -1; }
+.principal-action-block, .principal-link-panel {
+  display: grid;
+  gap: 14px;
+}
+.principal-action-block {
+  padding-block: 4px 12px;
+  border-block: 1px solid var(--line);
+}
+.segmented-control {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: min(100%, 420px);
+  min-height: 42px;
+  padding: 4px;
+  background: color-mix(in srgb, var(--surface) 70%, white);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.segmented-control button {
+  min-width: 0;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 850;
+}
+.segmented-control button.active {
+  color: var(--ivory);
+  background: var(--primary-navy);
+}
+.principal-directory-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.9fr) minmax(260px, 1.1fr);
+  gap: 16px;
+  align-items: start;
+}
+.principal-account-preview {
+  display: grid;
+  gap: 10px;
+  padding-block: 2px;
+}
+.principal-account-preview strong {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  color: var(--ink);
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1;
+}
+.principal-account-preview dl {
+  display: grid;
+  gap: 8px;
+}
+.principal-account-preview div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--line);
+}
+.principal-account-preview dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+}
+.principal-account-preview dd {
+  color: var(--ink);
+  text-align: right;
+  font-size: 13px;
+  font-weight: 850;
+}
+.directory-empty-state {
+  display: grid;
+  gap: 5px;
+  padding-block: 4px;
+}
+.directory-empty-state strong { color: var(--ink); }
+.directory-empty-state span {
+  color: var(--muted);
+  font-size: 14px;
+}
 .access-link-panel {
   display: grid;
   gap: 8px;
@@ -611,7 +692,7 @@ tbody tr:hover { background: color-mix(in srgb, var(--action-blue) 5%, transpare
   .mission-copy h2 { font-size: 42px; }
   .admin-nav { display: flex; overflow-x: auto; padding-bottom: 4px; }
   .admin-nav a { flex: 0 0 auto; }
-  .dashboard-actions, .form-grid, .inline-form, .split-panel, .status-band dl { grid-template-columns: 1fr; }
+  .dashboard-actions, .form-grid, .inline-form, .principal-directory-grid, .split-panel, .status-band dl { grid-template-columns: 1fr; }
   .section-header, .table-heading, .dashboard-header, .panel-heading { align-items: flex-start; flex-direction: column; }
   .trip-desktop-table { display: none; }
   .mobile-trip-list { display: grid; gap: 10px; padding: 12px; }
