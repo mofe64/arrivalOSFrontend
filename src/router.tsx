@@ -50,6 +50,12 @@ const acceptInvitationRoute = createRoute({
   component: AcceptInvitationPage,
 })
 
+const acceptInviteRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/accept-invite',
+  component: AcceptInvitationPage,
+})
+
 const verifyEmailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/verify-email',
@@ -141,6 +147,7 @@ const routeTree = rootRoute.addChildren([
   forgotPasswordRoute,
   resetPasswordRoute,
   acceptInvitationRoute,
+  acceptInviteRoute,
   verifyEmailRoute,
   adminRoute.addChildren([
     adminDashboardRoute,
