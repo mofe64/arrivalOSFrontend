@@ -59,6 +59,9 @@ export function AdminTripCreatePage() {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+  }
+
+  function handleCreateTrip() {
     createTrip.mutate()
   }
 
@@ -131,7 +134,7 @@ export function AdminTripCreatePage() {
         <div className="wizard-actions">
           <button className="secondary-button" type="button" onClick={() => setStep(previousStep(step))}>Back</button>
           {step === 'operations' ? (
-            <button className="primary-button" disabled={!flightNumber || !arrivalAirport || !principalReady || createTrip.isPending} type="submit">
+            <button className="primary-button" disabled={!flightNumber || !arrivalAirport || !principalReady || createTrip.isPending} type="button" onClick={handleCreateTrip}>
               {createTrip.isPending ? 'Creating...' : 'Create trip'}
             </button>
           ) : (
