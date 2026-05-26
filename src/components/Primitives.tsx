@@ -35,7 +35,6 @@ export function EmptyState({
 }) {
   return (
     <section className="empty-state">
-      <p className="eyebrow">No records</p>
       <h2>{title}</h2>
       <p>{body}</p>
       {action && (
@@ -47,7 +46,7 @@ export function EmptyState({
   )
 }
 
-export function LoadingState({ label = 'Loading operational records' }: { label?: string }) {
+export function LoadingState({ label = 'Loading…' }: { label?: string }) {
   return (
     <div className="loading-state" role="status">
       <span />

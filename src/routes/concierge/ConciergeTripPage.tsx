@@ -134,7 +134,7 @@ export function ConciergeTripPage() {
       <main className="concierge-shell">
         <section className="ops-panel">
           <h1>Access token missing</h1>
-          <p className="muted-copy">Open the trip-scoped link issued by Gbèjà ops.</p>
+          <p className="muted-copy">Open the access link sent to you by Gbèjà ops.</p>
         </section>
       </main>
     )
@@ -173,14 +173,14 @@ export function ConciergeTripPage() {
           <div className="sync-strip" data-state={queue.length > 0 ? 'waiting' : 'synced'}>
             <strong>{queue.length > 0 ? `${queue.length} waiting to sync` : 'Synced'}</strong>
             <span>{navigator.onLine ? 'Online' : 'Offline'}</span>
-            <span>{trip.watcherCount} email recipients</span>
+            <span>{trip.watcherCount} {trip.watcherCount === 1 ? 'watcher' : 'watchers'}</span>
             {queue.length > 0 && navigator.onLine && (
               <button type="button" onClick={() => void syncQueued()}>Sync now</button>
             )}
           </div>
           <label className="field">
             <span>Field note</span>
-            <textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="Optional operational note" />
+            <textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="Optional note" />
           </label>
           <ApiErrorMessage error={submitEvent.error} />
           <button
@@ -207,7 +207,7 @@ export function ConciergeTripPage() {
       </section>
 
       <article className="timeline-panel">
-        <div className="panel-heading"><h2>Timeline</h2><span>Trusted updates</span></div>
+        <div className="panel-heading"><h2>Timeline</h2></div>
         <TimelineFeed events={trip.timelineEvents} />
       </article>
     </main>

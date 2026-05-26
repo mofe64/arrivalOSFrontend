@@ -121,7 +121,6 @@ export function PrincipalLinkFields({
 function PrincipalAccountPreview({ principal }: { principal: AdminPrincipalSummary }) {
   return (
     <aside className="principal-account-preview">
-      <p className="eyebrow">Directory record</p>
       <strong>{principal.fullName}</strong>
       <dl>
         <div>

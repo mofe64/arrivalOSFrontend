@@ -19,7 +19,7 @@ export function AdminPrincipalsPage() {
 
   return (
     <>
-      <SectionHeader eyebrow="Principals" title="Principal management" />
+      <SectionHeader title="Principals" />
       {principalsQuery.isLoading && <LoadingState />}
       <ApiErrorMessage error={principalsQuery.error} />
       {principals.length === 0 ? (
@@ -46,10 +46,7 @@ function PrincipalDetail({ principal }: { principal: AdminPrincipalSummary }) {
   return (
     <article className="detail-card">
       <div className="panel-heading">
-        <div>
-          <p className="eyebrow">Principal detail</p>
-          <h2>{principal.fullName}</h2>
-        </div>
+        <h2>{principal.fullName}</h2>
         <span className="trip-status" data-tone={principal.active ? 'complete' : 'watch'}>{principal.active ? 'Active' : 'Inactive'}</span>
       </div>
       <dl className="compact-dl">

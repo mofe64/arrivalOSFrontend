@@ -30,14 +30,13 @@ export function LoginPage() {
 
   return (
     <AuthFrame
-      eyebrow="Trusted arrival command"
-      title="Secure access for live airport timelines."
-      body="Sign in to follow verified updates, manage handoffs, and keep every trip auditable."
+      eyebrow="ArrivalOS"
+      title="Sign in."
+      body="Access live airport timelines, handoffs, and trip records."
     >
       <div className="login-heading">
-        <p className="eyebrow">Secure sign in</p>
-        <h2 id="login-title">Sign in to continue</h2>
-        <p>Use your approved ArrivalOS credentials.</p>
+        <h2 id="login-title">Welcome back</h2>
+        <p>Use your ArrivalOS credentials.</p>
       </div>
 
       <form className="login-form" onSubmit={handleSubmit}>
@@ -67,7 +66,7 @@ export function LoginPage() {
         </label>
         <div className="form-actions">
           <button className="primary-button" disabled={!canSubmit} type="submit">
-            {login.isPending ? 'Signing in...' : 'Continue securely'}
+            {login.isPending ? 'Signing in…' : 'Sign in'}
           </button>
         </div>
         <Link className="text-link" to="/forgot-password">Forgot password?</Link>
@@ -81,10 +80,9 @@ export function ForgotPasswordPage() {
   const forgot = useMutation({ mutationFn: () => authApi.forgotPassword(email.trim()) })
 
   return (
-    <AuthFrame eyebrow="Account recovery" title="Recover access without exposing account status." body="ArrivalOS sends a reset link when the email belongs to an active account.">
+    <AuthFrame eyebrow="Account" title="Reset password." body="We'll email a reset link if the address belongs to an active account.">
       <div className="login-heading">
-        <p className="eyebrow">Password reset</p>
-        <h2>Request a reset link</h2>
+        <h2>Request reset link</h2>
       </div>
       <form className="login-form" onSubmit={(event) => { event.preventDefault(); forgot.mutate() }}>
         <ApiErrorMessage error={forgot.error} />
@@ -115,9 +113,8 @@ export function ResetPasswordPage() {
   })
 
   return (
-    <AuthFrame eyebrow="Credential update" title="Set a new ArrivalOS password." body="Use the reset token from your email to restore access.">
+    <AuthFrame eyebrow="Account" title="New password." body="Use the reset token from your email.">
       <div className="login-heading">
-        <p className="eyebrow">Reset password</p>
         <h2>Choose a new password</h2>
       </div>
       <form className="login-form" onSubmit={(event) => { event.preventDefault(); reset.mutate() }}>
@@ -149,9 +146,8 @@ export function AcceptInvitationPage() {
   })
 
   return (
-    <AuthFrame eyebrow="Invitation acceptance" title="Activate an approved ArrivalOS account." body="Accept the invitation and continue into the workspace allowed for your account type.">
+    <AuthFrame eyebrow="Invitation" title="Activate your account." body="Set a password to accept the invitation.">
       <div className="login-heading">
-        <p className="eyebrow">Invitation</p>
         <h2>Create your password</h2>
       </div>
       <form className="login-form" onSubmit={(event) => { event.preventDefault(); accept.mutate() }}>
@@ -175,9 +171,8 @@ export function VerifyEmailPage() {
   const verify = useMutation({ mutationFn: () => authApi.verifyEmail(token) })
 
   return (
-    <AuthFrame eyebrow="Email verification" title="Confirm the email tied to this account." body="Verified email is required before ArrivalOS allows login.">
+    <AuthFrame eyebrow="Account" title="Verify email." body="Email verification is required before sign-in.">
       <div className="login-heading">
-        <p className="eyebrow">Verification</p>
         <h2>Verify your email</h2>
       </div>
       <form className="login-form" onSubmit={(event) => { event.preventDefault(); verify.mutate() }}>
@@ -210,8 +205,8 @@ function AuthFrame({
         <div className="brand-lockup">
           <img src={arrivalOsLogo} alt="" className="brand-mark" />
           <div>
-            <p className="eyebrow">Gbèjà Global Security</p>
             <h1 id="brand-title">ArrivalOS</h1>
+            <small>Gbèjà Global Security</small>
           </div>
         </div>
         <div className="mission-copy">
@@ -219,11 +214,7 @@ function AuthFrame({
           <h2>{title}</h2>
           <p>{body}</p>
         </div>
-        <div className="assurance-strip" aria-label="Security assurances">
-          <span>Timeline first</span>
-          <span>Email updates</span>
-          <span>Audit ready</span>
-        </div>
+        <p className="brand-promise">We don't sleep, so you can.</p>
       </section>
       <section className="login-panel">{children}</section>
     </main>

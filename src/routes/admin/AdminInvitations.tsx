@@ -21,11 +21,11 @@ export function AdminInvitationsPage() {
 
   return (
     <>
-      <SectionHeader eyebrow="Invitations" title="Invite login-capable accounts" />
+      <SectionHeader title="Invitations" />
       <section className="two-column">
         <form className="ops-panel stack-form" onSubmit={handleSubmit}>
-          <h2>Create invitation</h2>
-          <p className="muted-copy">Invite admins and principals only. Watchers remain trip-scoped email notification recipients.</p>
+          <h2>Send invitation</h2>
+          <p className="muted-copy">Invite admins and principals only. Watchers are added per trip and don't need accounts.</p>
           <ApiErrorMessage error={invite.error} />
           <label className="field"><span>Full name</span><input value={fullName} onChange={(event) => setFullName(event.target.value)} /></label>
           <label className="field"><span>Email</span><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>

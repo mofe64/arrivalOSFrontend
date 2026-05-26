@@ -40,20 +40,17 @@ export function AdminNotificationsPage() {
 
   return (
     <>
-      <SectionHeader eyebrow="Notifications" title="Email delivery oversight" />
+      <SectionHeader title="Email delivery" />
       {(tripsQuery.isLoading || attemptsQuery.isLoading) && <LoadingState />}
       <ApiErrorMessage error={tripsQuery.error} />
       <ApiErrorMessage error={attemptsQuery.error} />
       <section className="table-panel">
         <div className="table-heading">
-          <div>
-            <p className="eyebrow">Attempt register</p>
-            <h2>Email notification attempts</h2>
-          </div>
-          <span className="muted-copy">{attempts.length} attempts loaded</span>
+          <h2>Recent attempts</h2>
+          <span className="muted-copy">{attempts.length} loaded</span>
         </div>
         {attempts.length === 0 && !attemptsQuery.isLoading ? (
-          <EmptyState title="No email attempts found" body="Timeline updates will populate this register once notification delivery starts." />
+          <EmptyState title="No email attempts yet" body="Attempts will appear here once timeline updates start sending notifications." />
         ) : (
           <div className="table-scroll">
             <table>

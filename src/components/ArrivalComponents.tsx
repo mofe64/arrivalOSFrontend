@@ -26,7 +26,6 @@ export function TripStatusBand({
   return (
     <section className="status-band" data-tone={statusTone(status)}>
       <div>
-        <p className="eyebrow">Current trip state</p>
         <h1>{statusLabel(status)}</h1>
         {currentCheckpoint && <p>Current: {currentCheckpoint.name}</p>}
       </div>
@@ -44,7 +43,7 @@ export function TripStatusBand({
           <dd>{airport ?? 'Not set'}</dd>
         </div>
         <div>
-          <dt>Last trusted update</dt>
+          <dt>Last update</dt>
           <dd>{relativeTime(lastUpdatedAt)}</dd>
         </div>
       </dl>
@@ -116,9 +115,8 @@ export function ConciergeIdentityCard({ concierge }: { concierge?: Concierge | n
       <article className="identity-card">
         <Avatar name="Unassigned" />
         <div>
-          <p className="eyebrow">Concierge</p>
-          <h2>Assignment pending</h2>
-          <p className="muted-copy">Assign a concierge before issuing a trip-scoped access link.</p>
+          <h2>Concierge unassigned</h2>
+          <p className="muted-copy">Assign a concierge before issuing an access link.</p>
         </div>
       </article>
     )
@@ -128,7 +126,6 @@ export function ConciergeIdentityCard({ concierge }: { concierge?: Concierge | n
     <article className="identity-card">
       <Avatar name={concierge.fullName} src={concierge.photoUrl} />
       <div>
-        <p className="eyebrow">Concierge</p>
         <h2>{concierge.fullName}</h2>
         <p>{concierge.phone}</p>
         <small>{concierge.publicId} · {concierge.active ? 'Active' : 'Inactive'}</small>
@@ -158,7 +155,7 @@ export function PrincipalIdentityBlock({ principals }: { principals: TripPrincip
 
 export function NotificationRecipientList({ watchers }: { watchers: Watcher[] }) {
   if (watchers.length === 0) {
-    return <p className="muted-copy">No email notification recipients have been added.</p>
+    return <p className="muted-copy">No watchers added yet.</p>
   }
 
   return (

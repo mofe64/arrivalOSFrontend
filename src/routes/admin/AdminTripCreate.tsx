@@ -137,7 +137,7 @@ export function AdminTripCreatePage() {
 
   return (
     <>
-      <SectionHeader eyebrow="New trip" title="Create arrival workflow" />
+      <SectionHeader title="Create trip" />
       <form className="wizard-shell" onSubmit={handleSubmit}>
         <ApiErrorMessage error={createTrip.error} />
         <nav className="wizard-steps" aria-label="Trip creation steps">
@@ -187,8 +187,7 @@ export function AdminTripCreatePage() {
               selectedPrincipalId={effectiveSelectedPrincipalId}
             />
             <p className="form-hint full-span">
-              Linked accounts keep the principal portal, watcher visibility, and trip history tied to one trusted identity.
-              Additional principals can be linked from the trip detail page once the trip exists.
+              Linking an account ties this trip to the principal's portal so they see updates and history. Additional principals can be linked from the trip detail page after the trip is created.
             </p>
           </section>
         )}
@@ -226,7 +225,7 @@ export function AdminTripCreatePage() {
               Add another watcher
             </button>
             <p className="form-hint">
-              Watchers are trip-scoped email recipients, not login accounts. Leave all rows empty to skip notifications.
+              Watchers receive email updates for this trip only — no login account needed. Leave all rows empty to skip.
             </p>
           </section>
         )}
@@ -247,7 +246,6 @@ export function AdminTripCreatePage() {
               </label>
               {selectedConcierge && (
                 <aside className="principal-account-preview">
-                  <p className="eyebrow">Operator record</p>
                   <strong>{selectedConcierge.fullName}</strong>
                   <dl>
                     <div><dt>Public ID</dt><dd>{selectedConcierge.publicId}</dd></div>
@@ -348,10 +346,7 @@ function TripReviewPanel({
   return (
     <section className="trip-review-panel">
       <div className="subsection-heading">
-        <div>
-          <p className="eyebrow">Review</p>
-          <h3>Confirm and create</h3>
-        </div>
+        <h3>Review and create</h3>
         <span>{checkpointCount} checkpoints</span>
       </div>
       <dl className="compact-dl">
@@ -369,7 +364,7 @@ function TripReviewPanel({
           <dt>Principal</dt>
           <dd>{principalLabel}{principalDetail ? ` · ${principalDetail}` : ''}</dd>
         </div>
-        <div><dt>Watchers</dt><dd>{watcherCount === 0 ? 'None' : `${watcherCount} email recipient${watcherCount > 1 ? 's' : ''}`}</dd></div>
+        <div><dt>Watchers</dt><dd>{watcherCount === 0 ? 'None' : `${watcherCount} watcher${watcherCount > 1 ? 's' : ''}`}</dd></div>
         <div><dt>Concierge</dt><dd>{conciergeLabel}</dd></div>
       </dl>
       <button

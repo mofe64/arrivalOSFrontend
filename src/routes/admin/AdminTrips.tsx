@@ -33,14 +33,14 @@ export function AdminTripsPage() {
 
   return (
     <>
-      <SectionHeader eyebrow="Trips" title="Arrival timeline register">
+      <SectionHeader title="Trips">
         <Link className="primary-link" to="/admin/trips/new">New trip</Link>
       </SectionHeader>
 
       <div className="filter-bar">
         <label className="field">
-          <span>Search by principal, flight, airport, status, or concierge</span>
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="BA075, LOS, Amina..." />
+          <span>Search</span>
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Principal, flight, airport, status, or concierge…" />
         </label>
       </div>
 
@@ -49,7 +49,7 @@ export function AdminTripsPage() {
       {filtered.length === 0 && !tripsQuery.isLoading ? (
         <EmptyState
           title="No trips match this view"
-          body="Create the first trip or clear filters to return to the active register."
+          body="Create the first trip or clear filters to see the full list."
           action={{ to: '/admin/trips/new', label: 'Create new trip' }}
         />
       ) : (

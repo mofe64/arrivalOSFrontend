@@ -39,7 +39,6 @@ export function PrincipalTripsPage() {
         {trips.map((trip) => (
           <Link className="principal-trip-card" key={trip.id} to="/principal/trips/$tripId" params={{ tripId: trip.id }}>
             <div>
-              <p className="eyebrow">Arrival</p>
               <h2>{trip.flightNumber} · {trip.arrivalAirport}</h2>
               <p>{trip.meetingPoint ?? 'Meeting instructions will be confirmed before arrival.'}</p>
               <small>{shortDateTime(trip.scheduledArrivalAt)}</small>

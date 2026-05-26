@@ -63,7 +63,7 @@ export function PrincipalTripDetailPage() {
         </article>
 
         <article className="timeline-panel">
-          <div className="panel-heading"><h2>Your arrival timeline</h2><span>Customer-safe updates</span></div>
+          <div className="panel-heading"><h2>Your timeline</h2></div>
           <TimelineFeed events={trip.timelineEvents} />
         </article>
       </div>
@@ -75,7 +75,7 @@ export function PrincipalTripDetailPage() {
         </article>
         <form className="ops-panel stack-form" onSubmit={handleWatcher}>
           <h2>Add email recipient</h2>
-          <p className="muted-copy">Add a trusted contact to receive email updates for this trip.</p>
+          <p className="muted-copy">Add someone to receive email updates for this trip.</p>
           <ApiErrorMessage error={addWatcher.error} />
           <label className="field"><span>Name</span><input value={watcherName} onChange={(event) => setWatcherName(event.target.value)} /></label>
           <label className="field"><span>Email</span><input type="email" value={watcherEmail} onChange={(event) => setWatcherEmail(event.target.value)} /></label>

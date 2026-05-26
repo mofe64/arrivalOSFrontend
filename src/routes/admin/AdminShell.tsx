@@ -31,8 +31,8 @@ export function AdminShell() {
         <div className="admin-brand">
           <img src={arrivalOsLogo} alt="" />
           <div>
-            <p className="eyebrow">ArrivalOS</p>
-            <strong>Admin</strong>
+            <strong>ArrivalOS</strong>
+            <small>Operations</small>
           </div>
         </div>
 

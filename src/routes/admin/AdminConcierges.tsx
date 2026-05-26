@@ -39,37 +39,34 @@ export function AdminConciergesPage() {
 
   return (
     <>
-      <SectionHeader eyebrow="Concierges" title="Field operators">
-        <div className="section-kpis" aria-label="Concierge record counts">
+      <SectionHeader title="Concierges">
+        <div className="section-kpis" aria-label="Concierge counts">
           <span>{activeCount} active</span>
           <span>{concierges.length} total</span>
         </div>
       </SectionHeader>
       <section className="concierge-admin-grid">
         <form className="ops-panel stack-form concierge-create-panel" onSubmit={handleSubmit}>
-          <h2>Create field operator</h2>
-          <p className="muted-copy">Create the operational record first. Trip-scoped access links are issued from trip detail pages.</p>
+          <h2>Add concierge</h2>
+          <p className="muted-copy">Access links are issued from each trip detail page.</p>
           <ApiErrorMessage error={create.error} />
-          <label className="field"><span>Operator name</span><input value={fullName} onChange={(event) => setFullName(event.target.value)} /></label>
+          <label className="field"><span>Full name</span><input value={fullName} onChange={(event) => setFullName(event.target.value)} /></label>
           <label className="field"><span>Mobile phone</span><input value={phone} onChange={(event) => setPhone(event.target.value)} /></label>
           <label className="field"><span>Public ID</span><input value={publicId} onChange={(event) => setPublicId(event.target.value)} placeholder="GGS-NAME" /></label>
           <label className="field"><span>Photo URL</span><input value={photoUrl} onChange={(event) => setPhotoUrl(event.target.value)} /></label>
           <button className="primary-button" disabled={!fullName.trim() || !phone.trim() || !publicId.trim() || create.isPending} type="submit">
-            {create.isPending ? 'Creating...' : 'Create operator'}
+            {create.isPending ? 'Adding…' : 'Add concierge'}
           </button>
         </form>
         <section className="ops-panel concierge-directory-panel">
           <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Directory</p>
-              <h2>Operator records</h2>
-            </div>
-            <span>{conciergesQuery.isFetching ? 'Syncing' : 'Live records'}</span>
+            <h2>Directory</h2>
+            {conciergesQuery.isFetching && <span className="muted-copy">Syncing…</span>}
           </div>
-          {conciergesQuery.isLoading && <LoadingState label="Loading field operators" />}
+          {conciergesQuery.isLoading && <LoadingState label="Loading concierges" />}
           <ApiErrorMessage error={conciergesQuery.error} />
           {!conciergesQuery.isLoading && concierges.length === 0 ? (
-            <EmptyState title="No concierges yet" body="Create the first field operator here, then assign them to an arrival from the trip detail page." />
+            <EmptyState title="No concierges yet" body="Add the first concierge here, then assign them to a trip from the trip detail page." />
           ) : (
             <ul className="operator-list">
               {concierges.map((concierge) => (

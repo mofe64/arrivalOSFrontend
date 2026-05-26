@@ -84,7 +84,7 @@ const watchers: Watcher[] = [
 ]
 
 const timelineEvents: TimelineEvent[] = [
-  event('e-1', 'TRIP_CREATED', 'OPS', 190, 'Trip created and notification recipients confirmed.'),
+  event('e-1', 'TRIP_CREATED', 'OPS', 190, 'Trip created and watchers confirmed.'),
   event('e-2', 'CONCIERGE_IN_POSITION', 'CONCIERGE', 54, 'Concierge confirmed at arrivals hall.'),
   event('e-3', 'CHECKPOINT_STARTED', 'CONCIERGE', 22, 'Immigration desk joined.', 'Immigration'),
 ]

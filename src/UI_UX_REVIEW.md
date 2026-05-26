@@ -652,4 +652,334 @@ npx vite --port 5180      # ready in ~150ms, serves transformed routes (curl-ver
 
 ---
 
-*Sprint 2 patch log end. Next: Sprint 3 (visual rebuild — type scale, eyebrow pruning, status-band height) once design has signed off on the type scale.*
+*Sprint 2 patch log end. See §16 for Sprint 3.*
+
+---
+
+## 16. Patch Log — Sprint 3 (visual rebuild)
+
+Visual cleanup of the design system. Build clean, lint clean, dev server boots and transforms all routes. The Cormorant + navy + scarce gold direction is preserved per the design context — Sprint 3 just stops spraying it everywhere.
+
+### 16.1 Type scale + Cormorant restriction *(§5.1, §6.5)*
+
+Replaced the eight overlapping `clamp()` heading rules with eight CSS-variable type tokens at fixed sizes:
+
+| Token | px | Used for |
+|---|---|---|
+| `--text-display` | 36 | Page H1 (SectionHeader, status-band-style heroes) |
+| `--text-3xl` | 26 | Editorial moments (login-heading, principal-trip-card flight number) |
+| `--text-2xl` | 20 | Command panel headings |
+| `--text-xl` | 17 | Panel headings (timeline, ops, info, detail) |
+| `--text-lg` | 15 | Subsection headings, large body |
+| `--text-base` | 14 | Body |
+| `--text-sm` | 13 | Small body, table cells |
+| `--text-xs` | 11 | Eyebrow, caps labels |
+
+Cormorant Garamond now restricted to:
+- Brand lockup (`.brand-lockup h1`)
+- Login mission headline (`.mission-copy h2`)
+- Login form heading (`.login-heading h2`)
+- Section page H1 (`.section-header h1`)
+- Trip status band H1 (`.status-band h1`)
+- Principal trip card flight number (`.principal-trip-card h2`)
+- Meeting point heading (`.meeting-point h2`)
+- Identity card name (`.identity-card h2`)
+- Principal account preview name (`.principal-account-preview strong`)
+- Empty state title (`.empty-state h2`)
+- Brand promise tagline on login (new `.brand-promise`)
+
+Everything else — table headings, panel headings, command panels, subsection H3s, dialog headings, ops panel H2s, table caps — is Inter. Removed `font-family: 'Cormorant Garamond'` from `.table-heading h2 / .panel-heading h2 / .ops-panel h2 / .info-panel h2 / .detail-card h2 / .subsection-heading h3 / .command-panel-heading h2`. That's eight headings demoted to Inter without losing the editorial pages.
+
+`clamp()` headings reduced from 22 to 2 (mission-copy and login-heading kept fluid because the login surface is genuinely marketing-scale).
+
+### 16.2 Brand hierarchy fix *(§5.3)*
+
+Sidebar previously read "ARRIVALOS" (tiny) above "Admin" (huge serif). Now reads "ArrivalOS" (Inter semibold) above "OPERATIONS" (caps-tracked label). Brand is the headline; the workspace label is a sublabel. Fixes the inverted hierarchy from screenshot 1.
+
+Files: `AdminShell.tsx`, `index.css` (`.admin-brand strong` + new `.admin-brand small`).
+
+### 16.3 Trip status band halved *(§5.4)*
+
+Before: `clamp(38px, 5vw, 68px)` Cormorant H1 + two-column dl with chip-styled cells — band consumed ~200px on a 1080p detail view, screenshot 6.
+
+After: 28px serif H1 (still Cormorant — this is the one ops "right-now" headline), single-row metadata strip (`grid-template-columns: repeat(4, minmax(0, 1fr))`), padding `18px 24px`. Same content, less than half the height.
+
+The gold `box-shadow: inset 0 -4px 0` on `[data-tone='active']` removed (§5.7) — the new status-pill dot system carries tone now.
+
+### 16.4 Decorative noise stripped *(§5.7)*
+
+| Removed | Where |
+|---|---|
+| Graph-paper background on `.admin-shell` | `index.css` — 5 lines of `linear-gradient` deleted |
+| Graph-paper background on `.concierge-shell` | `index.css` — same |
+| Graph-paper background on `.login-screen` | `index.css` — same |
+| `.metric-card::after` dead blue dot pseudo-element | `index.css` — 3 lines deleted |
+| `.status-band[data-tone='active']` gold inset shadow | `index.css` — 1 line deleted |
+| `.assurance-strip` "Timeline first / Email updates / Audit ready" chips on login | `AuthPages.tsx` |
+
+Replaced the login chips with the **Gbèjà promise** — *"We don't sleep, so you can."* — set in Cormorant italic per the design context's "shared and exported artefacts" guidance. One editorial moment with brand meaning beats three generic assurance chips.
+
+### 16.5 Single shadow tier *(§5.7)*
+
+`--shadow` collapsed from `0 18px 50px (10% navy)` to `0 4px 12px (6% navy)`. Added `--shadow-elevated: 0 10px 28px (14%)` as a second tier used only by the confirm dialog. Cards now feel grounded instead of floating; hierarchy reads sharper.
+
+### 16.6 Eyebrows pruned *(§6.5)*
+
+`grep -rn 'className="eyebrow"' src` count: **31 → 6**.
+
+Retained:
+| File | Eyebrow | Why kept |
+|---|---|---|
+| `AdminDashboard.tsx:39` | "Operations" | Page hero |
+| `AdminShell.tsx:48` | "Signed in" | Sidebar status label |
+| `AuthPages.tsx:213` | `{eyebrow}` prop | Auth page mission context |
+| `PrincipalTripDetail.tsx:58` | "Meeting point" | Label-and-content pattern (H2 holds the address) |
+| `ConciergeTripPage.tsx:169` | "Meeting point" | Same pattern, concierge view |
+| `Primitives.tsx:70` | `{eyebrow}` prop | Only renders if SectionHeader caller passes one |
+
+Every other eyebrow — `Source of truth`, `Ops command`, `Principal record`, `Concierge assignment`, `Notification recipient`, `Concierge access link`, `Operator record`, `Directory record`, `Directory`, `Principal detail`, `Attempt register`, `Recently updated`, `Arrival` card label, `Destructive action`, `Concierge` over identity card, multiple auth subheadings — deleted.
+
+### 16.7 Terminology pass *(§6.1)*
+
+One word per concept. Replacements:
+
+| Old | New |
+|---|---|
+| Field operator / Field operators | Concierge / Concierges |
+| Operator record / Operator records | Concierge |
+| Email recipient (admin contexts) | Watcher |
+| Notification recipient | Watcher |
+| Add email recipient (admin button) | Add watcher |
+| Email notification attempts | Recent attempts |
+| Customer-safe updates (timeline chip) | *(removed)* |
+| Trusted updates (timeline chip) | *(removed)* |
+| Source of truth | *(removed)* |
+| Live board | *(removed)* |
+| Arrival timeline register (Trips title) | Trips |
+| Arrival command overview (Dashboard H1) | Today |
+| Active arrival register (table heading) | Active trips |
+| Create arrival workflow (wizard title) | Create trip |
+| Field operator records (Concierges title) | Concierges |
+| Create field operator (button) | Add concierge |
+| Email delivery oversight (Notifications title) | Email delivery |
+| Invite login-capable accounts (Invitations title) | Invitations |
+| Principal management (Principals title) | Principals |
+| Trusted arrival command (login eyebrow) | ArrivalOS |
+| Continue securely (login button) | Sign in |
+| Trip-scoped access link | Access link |
+| Field operator / Operator (form labels) | Concierge |
+| "Next operational move" (admin actions H2) | Next move |
+| "People on this trip" (subsection) | Principals on this trip |
+
+Principal-facing copy kept "Email recipient" only on the PrincipalTripDetail form because that's where the principal themselves adds a contact and the friendly word matters more than internal jargon.
+
+### 16.8 Smaller paddings + tighter buttons
+
+| Surface | Before | After |
+|---|---|---|
+| Primary/secondary button min-height | 44px | 42px |
+| Primary/secondary button font-size | (inherited) | `--text-sm` |
+| Admin nav item min-height | 44px | 40px |
+| Field input gap | 8px | 6px |
+| Metric card min-height | 140px | 110px |
+| Metric value font-size | `clamp(34, 3.5vw, 48)` | 36px fixed |
+| Avatar | 54px | 48px |
+| Identity-card gap | 14px | 12px |
+| Detail-layout gap | 22px | 18px |
+| Status band hero padding | `clamp(20, 3vw, 30)` | 18px 24px |
+| Compact-dl gap | 10px | 8px |
+| Panel padding | 22px | 20px |
+
+Net: ~8-15% vertical real estate reclaimed across every detail page. Concierge primary button on field stays 54px for one-handed phone use (per design context).
+
+### 16.9 Files modified
+
+| File | Change |
+|---|---|
+| `src/index.css` | Type scale tokens, serif restriction, status band rewrite, shadow tier collapse, decorative noise removed, button/nav/field tightening, new `.brand-promise` and `.brand-lockup small` rules |
+| `src/components/ArrivalComponents.tsx` | Identity card + status band eyebrow removal, "No watchers added yet" copy |
+| `src/components/Primitives.tsx` | Empty-state eyebrow removal |
+| `src/routes/admin/AdminShell.tsx` | Brand hierarchy inversion fix |
+| `src/routes/admin/AdminDashboard.tsx` | Hero copy slimmed, command-state chips removed, table heading eyebrow removed, "Add principal" link demoted (kept only New trip + Invite account) |
+| `src/routes/admin/AdminTrips.tsx` | "Trips" title, search field copy |
+| `src/routes/admin/AdminConcierges.tsx` | "Concierges" title, "Add concierge" form copy, empty-state copy |
+| `src/routes/admin/AdminInvitations.tsx` | "Invitations" title, "Send invitation" copy |
+| `src/routes/admin/AdminPrincipals.tsx` | "Principals" title, panel eyebrow removal |
+| `src/routes/admin/AdminNotifications.tsx` | "Email delivery" title, "Recent attempts" panel copy |
+| `src/routes/admin/AdminTripDetail.tsx` | 6 panel/subsection eyebrows removed, "Watchers" panel rename, copy cleanup, "Add watcher" button rename |
+| `src/routes/admin/AdminTripCreate.tsx` | "Create trip" title, "Review and create" panel copy, "watcher(s)" counter in review |
+| `src/routes/admin/PrincipalLinkFields.tsx` | "Directory record" eyebrow removal |
+| `src/routes/principal/PrincipalTrips.tsx` | "Arrival" trip-card eyebrow removal |
+| `src/routes/principal/PrincipalTripDetail.tsx` | Timeline "Customer-safe updates" chip removed |
+| `src/routes/concierge/ConciergeTripPage.tsx` | Timeline "Trusted updates" chip removed, watcher count copy fixed |
+| `src/routes/auth/AuthPages.tsx` | All five page eyebrows cleaned up, marketing copy slimmed, assurance-strip replaced with Gbèjà promise |
+
+Bundle delta: CSS 29.6 → 29.8 KB (+0.2 KB — added tokens canceled by removed clamp rules and decorations), JS 391 → 388 KB (−3 KB, mostly removed copy strings).
+
+### 16.10 Risk notes for the team
+
+- **Every page will look noticeably different.** Headings smaller, less serif, no graph paper, no chip strips on the dashboard hero, "Today" not "Arrival command overview", "Concierge" not "Field operator". If you screenshot-diff in CI, baselines need refresh.
+- **The Gbèjà promise on login is set in italic Cormorant.** If the brand book has a different treatment for the tagline, swap in `.brand-promise`.
+- **`.admin-brand strong` is now Inter, not serif.** This was a deliberate brand-hierarchy correction (§5.3). Verify with brand owners — easy to revert by adding `.admin-brand strong` back into the serif rule.
+- **`metric-card[data-tone='attention']` and `[data-tone='watch']` previously colored the dead pseudo-element dot.** The dot is gone; `data-tone` is no longer consumed by `.metric-card`. The Dashboard.tsx still passes `tone="attention" | "watch"` to `<Metric>` — harmless but unused. Remove if you do a code-pass later.
+- **"Email recipient" still appears on the principal-facing add-watcher form.** Intentional: principals are not insiders and "watcher" is jargon. Don't global-replace this last one.
+- **Auth pages now show "We don't sleep, so you can."** The design context explicitly authorizes this on shared/exported artefacts. Login screen counts.
+
+### 16.11 Verify commands
+
+```bash
+cd arrivalOSFrontend/frontend
+npx tsc --noEmit          # 0 errors
+npx eslint src            # 0 errors
+npm run build             # 113ms, 29.8KB CSS, 388KB JS
+npx vite --port 5180      # ready in ~150ms; /src/index.css and route files transform 200 OK
+```
+
+### 16.12 Sprint 3 manual QA plan
+
+1. **Type scale**: open the admin dashboard, trips list, trip detail, and create wizard. Headings should feel like four distinct sizes (36 page H1, 26 trip cards, 20 command panels, 17 panels). No giant `clamp()` blowouts between viewport widths.
+2. **Cormorant audit**: count serif headings on a trip detail page. Should be ≤3 (the status band H1, the principal identity card name, the principal account preview if visible). Every panel heading should be Inter.
+3. **Status band**: open a trip detail. Band height should be ~70px tall, not 200px. Metadata in a single row.
+4. **Decoration**: grid backgrounds should be gone on admin sidebar workspace, concierge shell, and login screen. Metric cards should have no top-right dot.
+5. **Sidebar brand**: "ArrivalOS" should be larger than "OPERATIONS" — not the inversion in screenshot 1.
+6. **Terminology**: search the rendered admin pages for "field operator" — should be zero hits. "Source of truth", "Live board", "Trusted updates" — also zero.
+7. **Login**: the Gbèjà promise should render in italic serif at the bottom of the brand panel. Assurance chips gone.
+8. **Trip detail eyebrows**: scan the admin actions card. There should be NO `OPS COMMAND / PRINCIPAL RECORD / CONCIERGE ASSIGNMENT / NOTIFICATION RECIPIENT` caps eyebrows. Just H2 + H3s in Inter.
+
+---
+
+*Sprint 3 patch log end. See §17 for the AI-slop pattern cleanup.*
+
+---
+
+## 17. Patch Log — Sprint 3.5 (AI-slop pattern cleanup)
+
+Targeted cleanup of the three §6 patterns that were still leaking after Sprint 3: the **repeated subheading template**, the **marketing voice on operational chrome**, and the **terminology drift** that survived the first pass.
+
+### 17.1 Repeated subheading template eliminated *(§6.3)*
+
+**Before:** `AdminTripDetail.tsx` had one `.admin-command-panel` card containing FOUR jobs glued together with a repeated `.subsection-heading` (H3 + count badge) pattern:
+
+```
+[Next move]          ← timeline event form
+[Principals on this trip]   ← H3 + count, roster + add disclosure
+[Concierge assigned]        ← H3 + publicId, select + 2 buttons
+[Add watcher]               ← H3, inline 3-input row
+```
+
+Three H3 subsections inside one card, each duplicating data already visible in the right rail (Principals panel, Watchers panel, Concierge identity card). Classic "command center" AI template.
+
+**After:** Mutations were **distributed to their context panels**. Each panel now owns one job:
+
+| Panel | Owns |
+|---|---|
+| `ConciergeAdminPanel` (new) | Identity card + assignment select + Assign/Issue-link buttons + access-link display |
+| `PrincipalsAdminPanel` (new) | Roster + "Add or link a principal" `<details>` disclosure |
+| `WatchersAdminPanel` (new) | Watcher list + "Add a watcher" `<details>` disclosure |
+| `AdminActions` (slimmed) | "Next move" timeline event form + Cancel-trip dialog. That's it. |
+
+The `.admin-command-panel` card went from 4 sections to 1 form. The `.subsection-heading` pattern is now used in ONE place only (the wizard's review panel — appropriate there).
+
+`AdminActions` shrank from ~140 lines to ~50 lines and from 8 controlled-state hooks to 3.
+
+### 17.2 Marketing voice on operational chrome rewritten *(§6.2)*
+
+Every remaining marketing-coded phrase replaced with operational verbs:
+
+| Before | After | File |
+|---|---|---|
+| "Loading operational records" | "Loading…" | `Primitives.tsx` |
+| "Last trusted update" | "Last update" | `ArrivalComponents.tsx` |
+| "Add a trusted contact to receive email updates…" | "Add someone to receive email updates…" | `PrincipalTripDetail.tsx` |
+| "Create the first trip or clear filters to return to the active register." | "Create the first trip or clear filters to see the full list." | `AdminTrips.tsx` |
+| "Timeline updates will populate this register once notification delivery starts." | "Attempts will appear here once timeline updates start sending notifications." | `AdminNotifications.tsx` |
+| "Active arrivals, stale updates, and concierge readiness in one register." | "Active arrivals, stale updates, and concierge status at a glance." | `AdminDashboard.tsx` |
+| "Open arrival workflows" (metric detail) | "In progress" | `AdminDashboard.tsx` |
+| "Optional operational note" | "Optional note" | `ConciergeTripPage.tsx` |
+| "Ops note" (field label) | "Note (optional)" | `AdminTripDetail.tsx` |
+| "Operational mutations are disabled" | "Edits are disabled" | `AdminTripDetail.tsx` |
+| "Timeline event" / "Submit timeline event" | "Event" / "Submit event" | `AdminTripDetail.tsx` |
+| "trusted identity" / "trip history tied to one trusted identity" | "ties this trip to the principal's portal so they see updates and history" | `AdminTripCreate.tsx` |
+| "No principal has been added to this trip." | "No principal yet — add one below." | `AdminTripDetail.tsx` |
+| "Open the trip-scoped link issued by Gbèjà ops." | "Open the access link sent to you by Gbèjà ops." | `ConciergeTripPage.tsx` |
+
+Rule applied: every word does a job, or it's cut.
+
+### 17.3 Terminology drift closed *(§6.1)*
+
+Final cleanup of stragglers that survived Sprint 3:
+
+| Before | After |
+|---|---|
+| "Additional principal" / "Manual trip record" (roster small text) | "Additional" / "Manual entry" |
+| "Trip created and notification recipients confirmed." (fixture) | "Trip created and watchers confirmed." |
+| "Inactive concierges cannot be assigned to live trips." | "Inactive concierges can't be assigned." |
+| "Assign this concierge before issuing the access link." | "Assign first, then issue the link." |
+| "Cancelling the access link" (cancel dialog) | unchanged — actually accurate |
+| Plus removed all "(suggested: X)" parenthetical and replaced with em-dash form: "Event — suggested: Concierge in position" | for the event-type dropdown label |
+
+### 17.4 CSS orphans pruned
+
+Removing the centralized AdminActions left 7 CSS classes with no consumer. Deleted from `index.css`:
+
+- `.admin-command-panel`
+- `.command-panel-heading` + its `h2` + `> span` selectors
+- `.principal-command-section`
+- `.concierge-command-section`
+- `.watcher-command-section`
+- `.timeline-action-form`
+- `.concierge-assignment-grid`
+- `.concierge-selection-preview` (and its 4 child selectors)
+
+Renamed `.admin-command-panel` rule → `.admin-actions` and slimmed it.
+
+Bundle delta: CSS **29.8 → 28.2 KB** (−1.6 KB, −5.4%), JS **388 → 387 KB**.
+
+### 17.5 Files added / modified
+
+| Action | File |
+|---|---|
+| **Modified** | `src/routes/admin/AdminTripDetail.tsx` — AdminActions slimmed; added `ConciergeAdminPanel`, `PrincipalsAdminPanel`, `WatchersAdminPanel`; removed `ConciergeSelectionPreview` and `PrincipalIdentityBlock` import (unused); right-rail rewired to use the new admin panels |
+| Modified | `src/components/Primitives.tsx` — LoadingState default label |
+| Modified | `src/components/ArrivalComponents.tsx` — "Last update" |
+| Modified | `src/routes/principal/PrincipalTripDetail.tsx` — watcher form copy |
+| Modified | `src/routes/admin/AdminTrips.tsx` — empty state copy |
+| Modified | `src/routes/admin/AdminNotifications.tsx` — empty state copy |
+| Modified | `src/routes/admin/AdminDashboard.tsx` — hero subtitle + metric detail |
+| Modified | `src/routes/admin/AdminTripCreate.tsx` — principals step hint copy |
+| Modified | `src/routes/concierge/ConciergeTripPage.tsx` — note placeholder + missing-token copy |
+| Modified | `src/data/fixtures.ts` — sample timeline note |
+| Modified | `src/index.css` — 8 orphaned class rules removed, `.admin-actions` + `.subsection-heading` reworked |
+
+### 17.6 Verify
+
+```bash
+cd arrivalOSFrontend/frontend
+npx tsc --noEmit          # 0 errors
+npx eslint src            # 0 errors
+npm run build             # 121ms, 28.2KB CSS, 387KB JS
+npx vite --port 5180      # ready in ~150ms; trip detail + index.css transform 200 OK
+```
+
+### 17.7 Risk notes
+
+- **`AdminActions` no longer accepts `addPrincipal`, `addWatcher`, `assignConcierge`, `issueAccessLink`, `availablePrincipals`, `principalDirectoryError`, `principalDirectoryLoading`, `conciergeId`, `concierges`, `principals`, `accessLink` props.** All deleted. If a downstream caller exists (unlikely — this component is local to the file), update accordingly.
+- **`ConciergeSelectionPreview` and the `PrincipalIdentityBlock` import in this file are gone.** `PrincipalIdentityBlock` still lives in `ArrivalComponents` and is exported — other roles may still use it (concierge view does). Unchanged elsewhere.
+- **Right-rail height grew.** Concierge panel is now identity card + assignment + access link in one card — taller than before. Principals and Watchers panels each hold a `<details>` disclosure, collapsed by default. Total rail height is approximately the same as before because the centralized AdminActions card shrank by an equivalent amount in the bottom row.
+- **Bottom-row middle column (Checkpoints | AdminActions | Email attempts) feels less dense.** AdminActions is now ~150px shorter. If you want to rebalance, consider a 2-column bottom row with Email attempts moved into the right rail, or keep as-is for "calm beats dramatic".
+- **Watchers are now added via a `<details>` disclosure** instead of an always-visible inline form. Saves real estate but costs one click. Open the disclosure to see the form.
+
+### 17.8 What this accomplished
+
+| §6 issue | Before Sprint 3.5 | After |
+|---|---|---|
+| Repeated subheading template | 3 `.subsection-heading` blocks in one card | 1 use (wizard review panel — appropriate) |
+| Marketing voice on chrome | 14 phrases ("trusted", "operational", "register", "workflow", "oversight"…) | All rewritten to operational verbs |
+| Terminology drift | "Additional principal / Manual trip record / trip-scoped" still leaking | All concierge / watcher / trip / ops normalized |
+| CSS orphans | 7 unused classes | 0 |
+
+Combined with Sprint 3's type-scale + eyebrow pruning + decorative-noise cleanup, the visual signature of "AI-templated luxury SaaS dashboard" should be substantially gone. The remaining work is **architectural** (per IA §9), **backend-blocked** (§4.4, §4.5, TM-4, TM-5, AA-8, CT-8), or **further density tuning** that's better done with real ops feedback than a priori.
+
+---
+
+*Sprint 3.5 patch log end. The four §6 AI-slop patterns — terminology zoo, marketing voice, repeated subheading template, eyebrow saturation — are now closed. The remaining §6 item, §6.4 clamp() epidemic, was closed in Sprint 3. The §6.6 duplicated dashboard information was closed in Sprint 3 (chip strip removed).*

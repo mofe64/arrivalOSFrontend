@@ -36,18 +36,12 @@ export function AdminDashboard() {
     <>
       <header className="dashboard-header">
         <div className="dashboard-copy">
-          <p className="eyebrow">Ops dashboard</p>
-          <h1>Arrival command overview</h1>
-          <p>Monitor active arrivals, stale updates, and concierge readiness from one trusted timeline register.</p>
-          <div className="command-state" aria-label="Current operations state">
-            <span>Live board</span>
-            <span>{attentionTrips.length} need attention</span>
-            <span>Email failures: {emailFailures}</span>
-          </div>
+          <p className="eyebrow">Operations</p>
+          <h1>Today</h1>
+          <p>Active arrivals, stale updates, and concierge status at a glance.</p>
         </div>
         <div className="dashboard-actions" aria-label="Admin actions">
           <Link to="/admin/trips/new">New trip</Link>
-          <Link to="/admin/principals">Add principal</Link>
           <Link to="/admin/invitations">Invite account</Link>
         </div>
       </header>
@@ -57,18 +51,15 @@ export function AdminDashboard() {
       <ApiErrorMessage error={attemptsQuery.error} />
 
       <section className="metric-row" aria-label="Trip metrics">
-        <Metric label="Active trips" value={trips.filter((trip) => isActiveTrip(trip.status)).length} detail="Open arrival workflows" tone="neutral" />
+        <Metric label="Active trips" value={trips.filter((trip) => isActiveTrip(trip.status)).length} detail="In progress" tone="neutral" />
         <Metric label="Needs attention" value={attentionTrips.length} detail="Stale or unassigned" tone="attention" />
         <Metric label="Email failures" value={emailFailures} detail={`${attempts.length} attempts checked`} tone="watch" />
       </section>
 
       <section className="table-panel">
         <div className="table-heading">
-          <div>
-            <p className="eyebrow">Recently updated</p>
-            <h2>Active arrival register</h2>
-          </div>
-          <Link className="secondary-link" to="/admin/trips">Open trips</Link>
+          <h2>Active trips</h2>
+          <Link className="secondary-link" to="/admin/trips">Open all trips</Link>
         </div>
         <div className="table-scroll">
           <table>
