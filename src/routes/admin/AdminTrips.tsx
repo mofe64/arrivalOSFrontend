@@ -5,7 +5,8 @@ import { adminApi } from '../../api/arrivalos'
 import { withFixtureFallback } from '../../api/fallback'
 import { fixtureAdminTrips } from '../../data/fixtures'
 import { ApiErrorMessage, EmptyState, LoadingState, SectionHeader } from '../../components/Primitives'
-import { relativeTime, shortDateTime, statusLabel } from '../../components/format'
+import { relativeTime, shortDateTime, statusLabel, statusTone } from '../../components/format'
+import type { TripStatus } from '../../api/types'
 
 export function AdminTripsPage() {
   const [query, setQuery] = useState('')
@@ -73,7 +74,7 @@ export function AdminTripsPage() {
                     <td>{trip.primaryPrincipal?.fullName ?? 'Pending'}</td>
                     <td>{trip.flightNumber}</td>
                     <td>{trip.arrivalAirport} {trip.arrivalTerminal ? `· ${trip.arrivalTerminal}` : ''}</td>
-                    <td><StatusPill stale={trip.stale} label={statusLabel(trip.status)} /></td>
+                    <td><StatusPill stale={trip.stale} status={trip.status} /></td>
                     <td>{trip.assignedConcierge?.fullName ?? 'Unassigned'}</td>
                     <td>{relativeTime(trip.lastUpdatedAt)}</td>
                   </tr>
@@ -88,7 +89,7 @@ export function AdminTripsPage() {
                   <strong>{trip.primaryPrincipal?.fullName ?? 'Principal pending'}</strong>
                   <span>{trip.flightNumber} · {trip.arrivalAirport}</span>
                 </div>
-                <StatusPill stale={trip.stale} label={statusLabel(trip.status)} />
+                <StatusPill stale={trip.stale} status={trip.status} />
                 <small>{shortDateTime(trip.scheduledArrivalAt)} · {trip.assignedConcierge?.fullName ?? 'Unassigned'}</small>
               </Link>
             ))}
@@ -99,6 +100,10 @@ export function AdminTripsPage() {
   )
 }
 
-function StatusPill({ label, stale }: { label: string; stale: boolean }) {
-  return <span className="trip-status" data-tone={stale ? 'watch' : 'active'}>{stale ? 'Stale · ' : ''}{label}</span>
+function StatusPill({ status, stale }: { status: TripStatus; stale: boolean }) {
+  return (
+    <span className="trip-status" data-tone={stale ? 'watch' : statusTone(status)}>
+      {stale ? 'Stale · ' : ''}{statusLabel(status)}
+    </span>
+  )
 }

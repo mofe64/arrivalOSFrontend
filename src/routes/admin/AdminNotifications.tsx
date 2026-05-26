@@ -5,6 +5,14 @@ import { withFixtureFallback } from '../../api/fallback'
 import { fixtureAdminTripDetail, fixtureAdminTrips } from '../../data/fixtures'
 import { ApiErrorMessage, EmptyState, LoadingState, SectionHeader } from '../../components/Primitives'
 import { relativeTime, shortDateTime } from '../../components/format'
+import type { NotificationStatus } from '../../api/types'
+
+function attemptTone(status: NotificationStatus) {
+  if (status === 'FAILED') return 'danger'
+  if (status === 'DELIVERED') return 'complete'
+  if (status === 'SENT') return 'active'
+  return 'scheduled'
+}
 
 export function AdminNotificationsPage() {
   const tripsQuery = useQuery({
@@ -55,7 +63,7 @@ export function AdminNotificationsPage() {
                   <tr key={attempt.id}>
                     <td>{trip.flightNumber}</td>
                     <td>{trip.primaryPrincipal?.fullName ?? 'Pending'}</td>
-                    <td><span className="trip-status" data-tone={attempt.status === 'FAILED' ? 'watch' : 'active'}>{attempt.channel} · {attempt.status}</span></td>
+                    <td><span className="trip-status" data-tone={attemptTone(attempt.status)}>{attempt.channel} · {attempt.status}</span></td>
                     <td>{attempt.provider ?? 'Pending'}</td>
                     <td>{shortDateTime(attempt.createdAt)}</td>
                     <td>{relativeTime(trip.lastUpdatedAt)}</td>

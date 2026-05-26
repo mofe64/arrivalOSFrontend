@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams } from '@tanstack/react-router'
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { adminApi } from '../../api/arrivalos'
 import { withFixtureFallback } from '../../api/fallback'
-import type { AdminPrincipalSummary, Concierge, ConciergeAccessLink, TimelineEventType, TripStatus } from '../../api/types'
+import type { AdminPrincipalSummary, Concierge, ConciergeAccessLink, TimelineEventType, TripPrincipal, TripStatus } from '../../api/types'
 import { fixtureAdminTripDetail } from '../../data/fixtures'
 import {
   CheckpointTimeline,
@@ -16,6 +16,7 @@ import {
 import { ApiErrorMessage, LoadingState } from '../../components/Primitives'
 import { shortDateTime, statusLabel } from '../../components/format'
 import { eventOptions, isClosedStatus, nextEventForStatus } from '../../components/tripFlow'
+import { toFragmentLink } from '../../api/accessToken'
 import { PrincipalLinkFields, type PrincipalEntryMode } from './PrincipalLinkFields'
 
 export function AdminTripDetailPage() {
@@ -135,15 +136,20 @@ export function AdminTripDetailPage() {
           addWatcherError={addWatcher.error}
           assignConcierge={(conciergeId) => assign.mutate(conciergeId)}
           assignError={assign.error}
+          assignPending={assign.isPending}
           cancelTrip={(note) => cancel.mutate(note)}
           cancelError={cancel.error}
+          cancelPending={cancel.isPending}
           conciergeId={trip.concierge?.id}
+          flightNumber={trip.flightNumber}
           concierges={conciergesQuery.data ?? []}
           currentCheckpointName={trip.currentCheckpoint?.name}
           disabled={closed}
           issueAccessLink={(conciergeId) => accessLink.mutate(conciergeId)}
           issueAccessLinkError={accessLink.error}
+          issueAccessLinkPending={accessLink.isPending}
           accessLink={accessLink.data}
+          principals={trip.principals}
           tripStatus={trip.status}
         />
         <article className="ops-panel">
@@ -180,15 +186,20 @@ function AdminActions({
   addWatcherError,
   assignConcierge,
   assignError,
+  assignPending,
   cancelTrip,
   cancelError,
+  cancelPending,
   conciergeId,
   concierges,
   currentCheckpointName,
   disabled,
+  flightNumber,
   issueAccessLink,
   issueAccessLinkError,
+  issueAccessLinkPending,
   accessLink,
+  principals,
   tripStatus,
 }: {
   addEvent: (eventType: TimelineEventType, note?: string, checkpointName?: string) => void
@@ -203,15 +214,20 @@ function AdminActions({
   addWatcherError: unknown
   assignConcierge: (conciergeId: string) => void
   assignError: unknown
+  assignPending: boolean
   cancelTrip: (note: string) => void
   cancelError: unknown
+  cancelPending: boolean
   conciergeId?: string
   concierges: Concierge[]
   currentCheckpointName?: string
   disabled: boolean
+  flightNumber: string
   issueAccessLink: (conciergeId: string) => void
   issueAccessLinkError: unknown
+  issueAccessLinkPending: boolean
   accessLink?: ConciergeAccessLink
+  principals: TripPrincipal[]
   tripStatus: TripStatus
 }) {
   const suggestedEvent = nextEventForStatus(tripStatus)
@@ -227,6 +243,12 @@ function AdminActions({
   const [watcherValidation, setWatcherValidation] = useState('')
   const [selectedConcierge, setSelectedConcierge] = useState(conciergeId ?? '')
   const selectedEvent = eventOptions.find((option) => option.eventType === eventType)
+  const selectedConciergeValue = selectedConcierge || conciergeId || ''
+  const assignedConcierge = conciergeId ? concierges.find((concierge) => concierge.id === conciergeId) : undefined
+  const selectedConciergeRecord = selectedConciergeValue ? concierges.find((concierge) => concierge.id === selectedConciergeValue) : undefined
+  const conciergeSelectionChanged = Boolean(selectedConciergeValue && selectedConciergeValue !== conciergeId)
+  const canAssignConcierge = Boolean(selectedConciergeRecord?.active && conciergeSelectionChanged && !disabled && !assignPending)
+  const canIssueAccessLink = Boolean(selectedConciergeRecord?.active && selectedConciergeValue === conciergeId && !disabled && !issueAccessLinkPending)
   const selectedPrincipalStillAvailable = availablePrincipals.some((principal) => principal.id === selectedPrincipalId)
   const effectiveSelectedPrincipalId = selectedPrincipalStillAvailable ? selectedPrincipalId : availablePrincipals[0]?.id ?? ''
   const canSubmitPrincipal = principalMode === 'existing' ? Boolean(effectiveSelectedPrincipalId) : Boolean(principalName.trim())
@@ -260,16 +282,24 @@ function AdminActions({
     addPrincipal({ fullName: principalName.trim(), phone: principalPhone.trim() || undefined })
   }
 
+  const safeAccessLink = accessLink ? toFragmentLink(accessLink.updateUrl) : ''
+
   async function copyAccessLink() {
-    if (!accessLink?.updateUrl) return
-    await navigator.clipboard.writeText(accessLink.updateUrl)
+    if (!safeAccessLink) return
+    await navigator.clipboard.writeText(safeAccessLink)
   }
 
   return (
-    <article className="ops-panel">
-      <h2>Admin actions</h2>
+    <article className="ops-panel admin-command-panel">
+      <div className="command-panel-heading">
+        <div>
+          <p className="eyebrow">Ops command</p>
+          <h2>Next operational move</h2>
+        </div>
+        <span>{statusLabel(tripStatus)}</span>
+      </div>
       {disabled && <p className="warning-note">This trip is closed. Operational mutations are disabled.</p>}
-      <form className="stack-form" onSubmit={submitEvent}>
+      <form className="stack-form timeline-action-form" onSubmit={submitEvent}>
         <ApiErrorMessage error={addEventError} />
         <label className="field">
           <span>Timeline event {suggestedEvent ? `(suggested: ${suggestedEvent.label})` : ''}</span>
@@ -286,62 +316,272 @@ function AdminActions({
         <button className="primary-button" disabled={disabled || addEventPending || Boolean(selectedEvent?.checkpointRequired && !checkpointName.trim())} type="submit">Submit timeline event</button>
       </form>
 
-      <section className="principal-action-block">
-        <ApiErrorMessage error={addPrincipalError} />
-        <PrincipalLinkFields
-          availablePrincipals={availablePrincipals}
-          disabled={disabled}
-          error={principalDirectoryError}
-          loading={principalDirectoryLoading}
-          manualName={principalName}
-          manualPhone={principalPhone}
-          mode={principalMode}
-          onManualNameChange={setPrincipalName}
-          onManualPhoneChange={setPrincipalPhone}
-          onModeChange={setPrincipalMode}
-          onSelectedPrincipalIdChange={setSelectedPrincipalId}
-          selectedPrincipalId={effectiveSelectedPrincipalId}
-        />
-        <button
-          className="secondary-button"
-          disabled={disabled || !canSubmitPrincipal}
-          type="button"
-          onClick={submitPrincipal}
-        >
-          {principalMode === 'existing' ? 'Link principal account' : 'Add manual principal'}
-        </button>
+      <section className="principal-command-section">
+        <div className="subsection-heading">
+          <div>
+            <p className="eyebrow">Principal record</p>
+            <h3>People on this trip</h3>
+          </div>
+          <span>{principals.length} listed</span>
+        </div>
+        <TripPrincipalRoster principals={principals} />
+        <details className="command-disclosure">
+          <summary>Add or link another principal</summary>
+          <div className="command-disclosure-body">
+            <ApiErrorMessage error={addPrincipalError} />
+            <PrincipalLinkFields
+              availablePrincipals={availablePrincipals}
+              disabled={disabled}
+              error={principalDirectoryError}
+              loading={principalDirectoryLoading}
+              manualName={principalName}
+              manualPhone={principalPhone}
+              mode={principalMode}
+              onManualNameChange={setPrincipalName}
+              onManualPhoneChange={setPrincipalPhone}
+              onModeChange={setPrincipalMode}
+              onSelectedPrincipalIdChange={setSelectedPrincipalId}
+              selectedPrincipalId={effectiveSelectedPrincipalId}
+            />
+            <button
+              className="secondary-button"
+              disabled={disabled || !canSubmitPrincipal}
+              type="button"
+              onClick={submitPrincipal}
+            >
+              {principalMode === 'existing' ? 'Link principal account' : 'Add manual principal'}
+            </button>
+          </div>
+        </details>
       </section>
 
-      <div className="inline-form">
-        <ApiErrorMessage error={addWatcherError} />
-        {watcherValidation && <p className="warning-note">{watcherValidation}</p>}
-        <input aria-label="Watcher name" placeholder="Recipient name" value={watcherName} onChange={(event) => setWatcherName(event.target.value)} />
-        <input aria-label="Watcher email" placeholder="Email address" type="email" value={watcherEmail} onChange={(event) => setWatcherEmail(event.target.value)} />
-        <button disabled={disabled} type="button" onClick={submitWatcher}>Add email recipient</button>
-      </div>
-
-      <div className="inline-form">
+      <section className="concierge-command-section">
+        <div className="subsection-heading">
+          <div>
+            <p className="eyebrow">Concierge assignment</p>
+            <h3>{assignedConcierge ? 'Field operator assigned' : 'Assign field operator'}</h3>
+          </div>
+          <span>{assignedConcierge?.publicId ?? 'Unassigned'}</span>
+        </div>
         <ApiErrorMessage error={assignError} />
         <ApiErrorMessage error={issueAccessLinkError} />
-        <select aria-label="Assign concierge" value={selectedConcierge} onChange={(event) => setSelectedConcierge(event.target.value)}>
-          <option value="">Select linked concierge record</option>
-          {concierges.map((concierge) => <option key={concierge.id} value={concierge.id}>{concierge.fullName} · {concierge.publicId}</option>)}
-        </select>
-        <button disabled={disabled || !selectedConcierge} type="button" onClick={() => assignConcierge(selectedConcierge)}>Assign/change</button>
-        <button disabled={disabled || !selectedConcierge} type="button" onClick={() => issueAccessLink(selectedConcierge)}>Issue access link</button>
-      </div>
+        <div className="concierge-assignment-grid">
+          <label className="field">
+            <span>Operator record</span>
+            <select aria-label="Assign concierge" value={selectedConciergeValue} onChange={(event) => setSelectedConcierge(event.target.value)}>
+              <option value="">Select concierge</option>
+              {concierges.map((concierge) => <option key={concierge.id} value={concierge.id}>{concierge.fullName} · {concierge.publicId}{concierge.active ? '' : ' · inactive'}</option>)}
+            </select>
+          </label>
+          <ConciergeSelectionPreview
+            assigned={selectedConciergeValue === conciergeId}
+            concierge={selectedConciergeRecord}
+          />
+        </div>
+        <div className="command-button-row">
+          <button disabled={!canAssignConcierge} type="button" onClick={() => assignConcierge(selectedConciergeValue)}>
+            {assignPending ? 'Assigning...' : assignedConcierge ? 'Change assignment' : 'Assign concierge'}
+          </button>
+          <button disabled={!canIssueAccessLink} type="button" onClick={() => issueAccessLink(selectedConciergeValue)}>
+            {issueAccessLinkPending ? 'Issuing...' : 'Issue access link'}
+          </button>
+        </div>
+        {selectedConciergeRecord && !selectedConciergeRecord.active && <p className="warning-note">Inactive concierges cannot be assigned to live trips.</p>}
+        {selectedConciergeValue && selectedConciergeValue !== conciergeId && <p className="muted-copy">Assign this concierge before issuing a trip-scoped access link.</p>}
+      </section>
+
+      <section className="watcher-command-section">
+        <div className="subsection-heading">
+          <div>
+            <p className="eyebrow">Notification recipient</p>
+            <h3>Add email watcher</h3>
+          </div>
+        </div>
+        <div className="inline-form">
+          <ApiErrorMessage error={addWatcherError} />
+          {watcherValidation && <p className="warning-note">{watcherValidation}</p>}
+          <input aria-label="Watcher name" placeholder="Recipient name" value={watcherName} onChange={(event) => setWatcherName(event.target.value)} />
+          <input aria-label="Watcher email" placeholder="Email address" type="email" value={watcherEmail} onChange={(event) => setWatcherEmail(event.target.value)} />
+          <button disabled={disabled} type="button" onClick={submitWatcher}>Add email recipient</button>
+        </div>
+      </section>
       {accessLink && (
         <div className="access-link-panel">
           <p className="eyebrow">Concierge access link</p>
-          <a href={accessLink.updateUrl}>{accessLink.updateUrl}</a>
+          <a href={safeAccessLink}>{safeAccessLink}</a>
           <small>Expires {shortDateTime(accessLink.expiresAt)}</small>
           <button className="secondary-button" type="button" onClick={copyAccessLink}>Copy link</button>
         </div>
       )}
       <ApiErrorMessage error={cancelError} />
-      <button className="danger-button" disabled={disabled} type="button" onClick={() => cancelTrip('Cancelled from admin detail view')}>Cancel trip</button>
+      <CancelTripDialog
+        disabled={disabled}
+        flightNumber={flightNumber}
+        onConfirm={cancelTrip}
+        pending={cancelPending}
+      />
     </article>
   )
+}
+
+function CancelTripDialog({
+  disabled,
+  flightNumber,
+  onConfirm,
+  pending,
+}: {
+  disabled: boolean
+  flightNumber: string
+  onConfirm: (note: string) => void
+  pending: boolean
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  const [open, setOpen] = useState(false)
+  const [confirmText, setConfirmText] = useState('')
+  const [reason, setReason] = useState('')
+  const expected = flightNumber.trim()
+  const matches = confirmText.trim().toUpperCase() === expected.toUpperCase()
+  const ready = matches && reason.trim().length > 0 && !pending
+
+  useEffect(() => {
+    const dialog = dialogRef.current
+    if (!dialog) return
+    if (open && !dialog.open) {
+      dialog.showModal()
+    } else if (!open && dialog.open) {
+      dialog.close()
+    }
+  }, [open])
+
+  function close() {
+    setOpen(false)
+    setConfirmText('')
+    setReason('')
+  }
+
+  return (
+    <>
+      <button
+        className="danger-button"
+        disabled={disabled}
+        type="button"
+        onClick={() => setOpen(true)}
+      >
+        Cancel trip…
+      </button>
+      <dialog
+        aria-labelledby="cancel-trip-title"
+        className="confirm-dialog"
+        ref={dialogRef}
+        onCancel={(event) => {
+          event.preventDefault()
+          close()
+        }}
+        onClose={() => setOpen(false)}
+      >
+        <form method="dialog" onSubmit={(event) => event.preventDefault()}>
+          <p className="eyebrow">Destructive action</p>
+          <h2 id="cancel-trip-title">Cancel trip {expected}</h2>
+          <p className="muted-copy">
+            This closes the timeline, revokes the concierge access link, and notifies watchers.
+            It cannot be undone from this screen.
+          </p>
+          <label className="field">
+            <span>Type the flight number to confirm</span>
+            <input
+              autoComplete="off"
+              autoFocus
+              placeholder={expected}
+              spellCheck={false}
+              value={confirmText}
+              onChange={(event) => setConfirmText(event.target.value)}
+            />
+          </label>
+          <label className="field">
+            <span>Reason (recorded on the timeline)</span>
+            <textarea
+              placeholder="e.g. Flight diverted to ABV; principal rerouting."
+              rows={3}
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+            />
+          </label>
+          <div className="confirm-dialog-actions">
+            <button className="secondary-button" type="button" onClick={close}>Keep trip open</button>
+            <button
+              className="danger-button"
+              disabled={!ready}
+              type="button"
+              onClick={() => {
+                onConfirm(reason.trim())
+                close()
+              }}
+            >
+              {pending ? 'Cancelling…' : 'Cancel trip'}
+            </button>
+          </div>
+        </form>
+      </dialog>
+    </>
+  )
+}
+
+function TripPrincipalRoster({ principals }: { principals: TripPrincipal[] }) {
+  if (principals.length === 0) {
+    return <p className="muted-copy">No principal has been added to this trip.</p>
+  }
+
+  return (
+    <ul className="trip-principal-roster">
+      {principals.map((principal) => (
+        <li key={principal.id}>
+          <span className="operator-avatar" aria-hidden="true">{initials(principal.fullName)}</span>
+          <div>
+            <strong>{principal.fullName}</strong>
+            <small>
+              {principal.primaryContact ? 'Primary contact' : 'Additional principal'}
+              {' · '}
+              {principal.userAccountId ? 'Linked account' : 'Manual trip record'}
+              {principal.phone ? ` · ${principal.phone}` : ''}
+            </small>
+          </div>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function ConciergeSelectionPreview({ assigned, concierge }: { assigned: boolean; concierge?: Concierge }) {
+  if (!concierge) {
+    return (
+      <div className="concierge-selection-preview" data-empty="true">
+        <strong>No concierge selected</strong>
+        <span>Choose an active field operator, then assign them to this arrival.</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="concierge-selection-preview">
+      <span className="operator-avatar" aria-hidden="true">{initials(concierge.fullName)}</span>
+      <div>
+        <strong>{concierge.fullName}</strong>
+        <small>{concierge.publicId} · {concierge.phone}</small>
+      </div>
+      <mark data-status={assigned ? 'assigned' : concierge.active ? 'ready' : 'inactive'}>
+        {assigned ? 'Assigned' : concierge.active ? 'Ready' : 'Inactive'}
+      </mark>
+    </div>
+  )
+}
+
+function initials(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('')
 }
 
 function InfoPanel({ title, children }: { title: string; children: React.ReactNode }) {

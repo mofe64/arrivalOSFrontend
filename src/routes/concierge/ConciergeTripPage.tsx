@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams, useSearch } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
+import { readAccessTokenFromUrl } from '../../api/accessToken'
 import { conciergeApi } from '../../api/arrivalos'
 import { withFixtureFallback } from '../../api/fallback'
+import { ApiError } from '../../api/types'
 import {
   enqueueAction,
   readQueue,
@@ -23,7 +25,7 @@ import { isClosedStatus } from '../../components/tripFlow'
 export function ConciergeTripPage() {
   const { tripId } = useParams({ from: '/concierge/trips/$tripId' })
   const search = useSearch({ strict: false }) as { token?: string }
-  const accessToken = search.token ?? ''
+  const accessToken = useAccessToken(search.token)
   const queryClient = useQueryClient()
   const [queue, setQueue] = useState<QueuedConciergeAction[]>(() => readQueue(tripId))
   const [note, setNote] = useState('')
@@ -74,7 +76,10 @@ export function ConciergeTripPage() {
       setNote('')
       void queryClient.invalidateQueries({ queryKey: ['concierge', 'trip', tripId] })
     },
-    onError: (_error, action) => {
+    onError: (error, action) => {
+      if (isClientError(error)) {
+        return
+      }
       enqueueAction({
         tripId,
         accessToken,
@@ -91,16 +96,24 @@ export function ConciergeTripPage() {
     () => async () => {
       const queued = readQueue(tripId)
       for (const action of queued) {
-        await conciergeApi.addTimelineEvent(
-          action.tripId,
-          action.accessToken,
-          action.eventType,
-          action.note,
-          action.checkpointName,
-          action.offlineCreatedAt,
-          action.idempotencyKey,
-        )
-        removeQueuedAction(tripId, action.id)
+        try {
+          await conciergeApi.addTimelineEvent(
+            action.tripId,
+            action.accessToken,
+            action.eventType,
+            action.note,
+            action.checkpointName,
+            action.offlineCreatedAt,
+            action.idempotencyKey,
+          )
+          removeQueuedAction(tripId, action.id)
+        } catch (error) {
+          if (isClientError(error)) {
+            removeQueuedAction(tripId, action.id)
+            continue
+          }
+          throw error
+        }
       }
       setQueue(readQueue(tripId))
       void queryClient.invalidateQueries({ queryKey: ['concierge', 'trip', tripId] })
@@ -198,4 +211,18 @@ export function ConciergeTripPage() {
       </article>
     </main>
   )
+}
+
+function isClientError(error: unknown) {
+  return error instanceof ApiError && error.status >= 400 && error.status < 500
+}
+
+function useAccessToken(queryToken?: string) {
+  const [token, setToken] = useState(() => readAccessTokenFromUrl(queryToken))
+  useEffect(() => {
+    const handler = () => setToken(readAccessTokenFromUrl())
+    window.addEventListener('hashchange', handler)
+    return () => window.removeEventListener('hashchange', handler)
+  }, [])
+  return token
 }

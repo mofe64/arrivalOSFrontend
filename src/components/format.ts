@@ -54,10 +54,24 @@ export function relativeTime(value?: string | null) {
   return shortDateTime(value)
 }
 
-export function statusTone(status: TripStatus) {
-  if (status === 'CANCELLED') return 'danger'
-  if (status === 'COMPLETED') return 'complete'
-  if (status === 'CREATED') return 'scheduled'
-  if (status === 'PROCESSING' || status === 'CONCIERGE_IN_POSITION') return 'active'
-  return 'watch'
+export type StatusTone = 'scheduled' | 'active' | 'watch' | 'complete' | 'danger'
+
+export function statusTone(status: TripStatus): StatusTone {
+  switch (status) {
+    case 'CREATED':
+    case 'FLIGHT_APPROACHING':
+      return 'scheduled'
+    case 'CONCIERGE_IN_POSITION':
+    case 'FLIGHT_LANDED':
+    case 'CLIENT_MET':
+    case 'PROCESSING':
+      return 'active'
+    case 'TERMINAL_EXITED':
+    case 'HANDOVER_COMPLETED':
+      return 'watch'
+    case 'COMPLETED':
+      return 'complete'
+    case 'CANCELLED':
+      return 'danger'
+  }
 }

@@ -5,7 +5,7 @@ import { withFixtureFallback } from '../../api/fallback'
 import type { NotificationAttempt } from '../../api/types'
 import { fixtureAdminTripDetail, fixtureAdminTrips } from '../../data/fixtures'
 import { ApiErrorMessage, LoadingState } from '../../components/Primitives'
-import { relativeTime, statusLabel } from '../../components/format'
+import { eventLabel, relativeTime, statusLabel, statusTone } from '../../components/format'
 
 export function AdminDashboard() {
   const tripsQuery = useQuery({
@@ -87,8 +87,8 @@ export function AdminDashboard() {
                 <tr key={trip.id}>
                   <td>{trip.primaryPrincipal?.fullName ?? 'Principal pending'}</td>
                   <td>{trip.flightNumber} · {trip.arrivalAirport}</td>
-                  <td><span className="trip-status" data-tone={trip.stale ? 'watch' : trip.status.toLowerCase()}>{statusLabel(trip.status)}</span></td>
-                  <td>{trip.lastTimelineEvent ? trip.lastTimelineEvent.eventType.replaceAll('_', ' ').toLowerCase() : 'No event'}</td>
+                  <td><span className="trip-status" data-tone={trip.stale ? 'watch' : statusTone(trip.status)}>{statusLabel(trip.status)}</span></td>
+                  <td>{trip.lastTimelineEvent ? eventLabel(trip.lastTimelineEvent.eventType) : 'No event'}</td>
                   <td>{relativeTime(trip.lastUpdatedAt)}</td>
                   <td>{trip.assignedConcierge?.fullName ?? 'Unassigned'}</td>
                 </tr>

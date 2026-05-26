@@ -50,7 +50,7 @@ function PrincipalDetail({ principal }: { principal: AdminPrincipalSummary }) {
           <p className="eyebrow">Principal detail</p>
           <h2>{principal.fullName}</h2>
         </div>
-        <span className="trip-status" data-tone={principal.active ? 'active' : 'watch'}>{principal.active ? 'Active' : 'Inactive'}</span>
+        <span className="trip-status" data-tone={principal.active ? 'complete' : 'watch'}>{principal.active ? 'Active' : 'Inactive'}</span>
       </div>
       <dl className="compact-dl">
         <div><dt>Email</dt><dd>{principal.email}</dd></div>
