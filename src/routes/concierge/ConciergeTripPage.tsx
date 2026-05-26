@@ -164,6 +164,7 @@ export function ConciergeTripPage() {
       <section className="concierge-command">
         <article className="principal-focus-panel">
           <PrincipalIdentityBlock principals={trip.principals} />
+          <PrincipalContactRow principal={trip.principals[0]} />
           <div className="meeting-point">
             <p className="eyebrow">Meeting point</p>
             <h2>{trip.meetingPoint ?? 'Meeting point not set'}</h2>
@@ -215,6 +216,17 @@ export function ConciergeTripPage() {
 
 function isClientError(error: unknown) {
   return error instanceof ApiError && error.status >= 400 && error.status < 500
+}
+
+function PrincipalContactRow({ principal }: { principal?: { fullName: string; phone?: string | null } }) {
+  if (!principal?.phone) return null
+  const sanitized = principal.phone.replace(/[^\d+]/g, '')
+  return (
+    <div className="principal-contact-row" aria-label={`Reach ${principal.fullName}`}>
+      <a className="primary-button" href={`tel:${sanitized}`}>Call principal</a>
+      <a className="secondary-button" href={`sms:${sanitized}`}>Send SMS</a>
+    </div>
+  )
 }
 
 function useAccessToken(queryToken?: string) {

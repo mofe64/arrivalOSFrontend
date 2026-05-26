@@ -5,6 +5,7 @@ import { adminApi } from '../../api/arrivalos'
 import { defaultCheckpoints } from '../../data/fixtures'
 import { ApiErrorMessage, SectionHeader } from '../../components/Primitives'
 import { PrincipalLinkFields, type PrincipalEntryMode } from './PrincipalLinkFields'
+import { shortDateTime } from '../../components/format'
 
 type Step = 'details' | 'principals' | 'recipients' | 'operations'
 
@@ -15,6 +16,14 @@ const STEP_LABELS: Record<Step, string> = {
   recipients: 'Watchers',
   operations: 'Operations',
 }
+
+type WatcherDraft = { key: string; fullName: string; email: string }
+
+function makeWatcherKey() {
+  return crypto.randomUUID()
+}
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export function AdminTripCreatePage() {
   const navigate = useNavigate()
@@ -28,10 +37,12 @@ export function AdminTripCreatePage() {
   const [selectedPrincipalId, setSelectedPrincipalId] = useState('')
   const [principalName, setPrincipalName] = useState('')
   const [principalPhone, setPrincipalPhone] = useState('')
-  const [watcherName, setWatcherName] = useState('')
-  const [watcherEmail, setWatcherEmail] = useState('')
+  const [watcherDrafts, setWatcherDrafts] = useState<WatcherDraft[]>(() => [
+    { key: makeWatcherKey(), fullName: '', email: '' },
+  ])
   const [conciergeId, setConciergeId] = useState('')
   const [checkpoints, setCheckpoints] = useState(defaultCheckpoints.map((checkpoint) => checkpoint.name).join('\n'))
+
   const principalsQuery = useQuery({
     queryKey: ['admin', 'principals', 'trip-create'],
     queryFn: adminApi.principals,
@@ -44,7 +55,36 @@ export function AdminTripCreatePage() {
   const selectedPrincipalStillAvailable = principals.some((principal) => principal.id === selectedPrincipalId)
   const effectiveSelectedPrincipalId = selectedPrincipalStillAvailable ? selectedPrincipalId : principals[0]?.id ?? ''
   const selectedConcierge = (conciergesQuery.data ?? []).find((concierge) => concierge.id === conciergeId)
+  const selectedPrincipalRecord = principals.find((principal) => principal.id === effectiveSelectedPrincipalId)
   const principalReady = principalMode === 'existing' ? Boolean(effectiveSelectedPrincipalId) : Boolean(principalName.trim())
+  const validWatchers = watcherDrafts.filter(isValidWatcher)
+  const watcherDraftsHaveInvalid = watcherDrafts.some(
+    (draft) => (draft.fullName.trim() || draft.email.trim()) && !isValidWatcher(draft),
+  )
+  const checkpointNames = checkpoints.split('\n').map((name) => name.trim()).filter(Boolean)
+
+  const createTrip = useMutation({
+    mutationFn: () =>
+      adminApi.createTrip({
+        flightNumber: flightNumber.trim(),
+        arrivalAirport: arrivalAirport.trim(),
+        arrivalTerminal: arrivalTerminal.trim() || undefined,
+        meetingPoint: meetingPoint.trim() || undefined,
+        scheduledArrivalAt: scheduledArrivalAt ? new Date(scheduledArrivalAt).toISOString() : undefined,
+        principals: [
+          principalMode === 'existing' && effectiveSelectedPrincipalId
+            ? { userAccountId: effectiveSelectedPrincipalId, primaryContact: true }
+            : { fullName: principalName.trim(), phone: principalPhone.trim() || undefined, primaryContact: true },
+        ],
+        watchers: validWatchers.map((draft) => ({
+          fullName: draft.fullName.trim() || draft.email.trim(),
+          email: draft.email.trim(),
+        })),
+        assignedConciergeId: conciergeId || undefined,
+        checkpoints: checkpointNames.map((name) => ({ name })),
+      }),
+    onSuccess: (trip) => void navigate({ to: '/admin/trips/$tripId', params: { tripId: trip.id } }),
+  })
 
   const stepErrors: Record<Step, string[]> = {
     details: [
@@ -56,10 +96,10 @@ export function AdminTripCreatePage() {
       : [principalMode === 'existing'
           ? 'Select a principal account or switch to manual details.'
           : 'Principal name is required.'],
-    recipients: watcherEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(watcherEmail.trim())
-      ? ['Watcher email is not a valid address.']
-      : [],
-    operations: [],
+    recipients: watcherDraftsHaveInvalid ? ['Each watcher needs a name and a valid email, or leave the row empty.'] : [],
+    operations: [
+      ...(checkpointNames.length > 0 ? [] : ['Add at least one checkpoint before creating the trip.']),
+    ],
   }
   const stepIsValid = (target: Step) => stepErrors[target].length === 0
   const canSubmit = STEP_ORDER.every(stepIsValid) && !createTrip.isPending
@@ -71,31 +111,28 @@ export function AdminTripCreatePage() {
   const isAtFirst = step === STEP_ORDER[0]
   const isAtLast = step === STEP_ORDER[STEP_ORDER.length - 1]
 
-  const createTrip = useMutation({
-    mutationFn: () => adminApi.createTrip({
-      flightNumber: flightNumber.trim(),
-      arrivalAirport: arrivalAirport.trim(),
-      arrivalTerminal: arrivalTerminal.trim() || undefined,
-      meetingPoint: meetingPoint.trim() || undefined,
-      scheduledArrivalAt: scheduledArrivalAt ? new Date(scheduledArrivalAt).toISOString() : undefined,
-      principals: [
-        principalMode === 'existing' && effectiveSelectedPrincipalId
-          ? { userAccountId: effectiveSelectedPrincipalId, primaryContact: true }
-          : { fullName: principalName.trim(), phone: principalPhone.trim() || undefined, primaryContact: true },
-      ],
-      watchers: watcherEmail ? [{ fullName: watcherName.trim() || watcherEmail.trim(), email: watcherEmail.trim() }] : [],
-      assignedConciergeId: conciergeId || undefined,
-      checkpoints: checkpoints.split('\n').map((name) => name.trim()).filter(Boolean).map((name) => ({ name })),
-    }),
-    onSuccess: (trip) => void navigate({ to: '/admin/trips/$tripId', params: { tripId: trip.id } }),
-  })
-
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
   }
 
   function handleCreateTrip() {
+    if (!canSubmit) return
     createTrip.mutate()
+  }
+
+  function updateWatcher(key: string, patch: Partial<WatcherDraft>) {
+    setWatcherDrafts((current) => current.map((draft) => (draft.key === key ? { ...draft, ...patch } : draft)))
+  }
+
+  function addWatcherRow() {
+    setWatcherDrafts((current) => [...current, { key: makeWatcherKey(), fullName: '', email: '' }])
+  }
+
+  function removeWatcherRow(key: string) {
+    setWatcherDrafts((current) => {
+      const next = current.filter((draft) => draft.key !== key)
+      return next.length === 0 ? [{ key: makeWatcherKey(), fullName: '', email: '' }] : next
+    })
   }
 
   return (
@@ -149,32 +186,108 @@ export function AdminTripCreatePage() {
               onSelectedPrincipalIdChange={setSelectedPrincipalId}
               selectedPrincipalId={effectiveSelectedPrincipalId}
             />
-            <p className="form-hint full-span">Linked accounts keep the principal portal, watcher visibility, and trip history tied to one trusted identity.</p>
+            <p className="form-hint full-span">
+              Linked accounts keep the principal portal, watcher visibility, and trip history tied to one trusted identity.
+              Additional principals can be linked from the trip detail page once the trip exists.
+            </p>
           </section>
         )}
         {step === 'recipients' && (
-          <section className="form-grid">
-            <label className="field"><span>Email recipient name</span><input value={watcherName} onChange={(event) => setWatcherName(event.target.value)} /></label>
-            <label className="field"><span>Email recipient address</span><input type="email" value={watcherEmail} onChange={(event) => setWatcherEmail(event.target.value)} /></label>
-            <p className="form-hint">Watchers are trip-scoped notification recipients, not login accounts.</p>
+          <section className="watcher-draft-list">
+            {watcherDrafts.map((draft, index) => (
+              <fieldset className="watcher-draft" key={draft.key}>
+                <legend>Watcher {index + 1}</legend>
+                <label className="field">
+                  <span>Name</span>
+                  <input
+                    value={draft.fullName}
+                    onChange={(event) => updateWatcher(draft.key, { fullName: event.target.value })}
+                  />
+                </label>
+                <label className="field">
+                  <span>Email</span>
+                  <input
+                    type="email"
+                    value={draft.email}
+                    onChange={(event) => updateWatcher(draft.key, { email: event.target.value })}
+                  />
+                </label>
+                <button
+                  className="watcher-draft-remove"
+                  type="button"
+                  onClick={() => removeWatcherRow(draft.key)}
+                  aria-label={`Remove watcher ${index + 1}`}
+                >
+                  Remove
+                </button>
+              </fieldset>
+            ))}
+            <button className="secondary-button" type="button" onClick={addWatcherRow}>
+              Add another watcher
+            </button>
+            <p className="form-hint">
+              Watchers are trip-scoped email recipients, not login accounts. Leave all rows empty to skip notifications.
+            </p>
           </section>
         )}
         {step === 'operations' && (
-          <section className="form-grid">
-            <div className="full-span"><ApiErrorMessage error={conciergesQuery.error} /></div>
-            <label className="field"><span>Linked concierge record</span><select value={conciergeId} onChange={(event) => setConciergeId(event.target.value)}><option value="">Assign later</option>{(conciergesQuery.data ?? []).map((concierge) => <option key={concierge.id} value={concierge.id}>{concierge.fullName} · {concierge.publicId}</option>)}</select></label>
-            {selectedConcierge && (
-              <aside className="principal-account-preview">
-                <p className="eyebrow">Operator record</p>
-                <strong>{selectedConcierge.fullName}</strong>
-                <dl>
-                  <div><dt>Public ID</dt><dd>{selectedConcierge.publicId}</dd></div>
-                  <div><dt>Phone</dt><dd>{selectedConcierge.phone}</dd></div>
-                  <div><dt>Status</dt><dd>{selectedConcierge.active ? 'Active' : 'Inactive'}</dd></div>
-                </dl>
-              </aside>
-            )}
-            <label className="field full-span"><span>Default checkpoint list</span><textarea rows={8} value={checkpoints} onChange={(event) => setCheckpoints(event.target.value)} /></label>
+          <section className="operations-step">
+            <div className="form-grid">
+              <div className="full-span"><ApiErrorMessage error={conciergesQuery.error} /></div>
+              <label className="field">
+                <span>Linked concierge record</span>
+                <select value={conciergeId} onChange={(event) => setConciergeId(event.target.value)}>
+                  <option value="">Assign later</option>
+                  {(conciergesQuery.data ?? []).map((concierge) => (
+                    <option key={concierge.id} value={concierge.id}>
+                      {concierge.fullName} · {concierge.publicId}{concierge.active ? '' : ' · inactive'}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {selectedConcierge && (
+                <aside className="principal-account-preview">
+                  <p className="eyebrow">Operator record</p>
+                  <strong>{selectedConcierge.fullName}</strong>
+                  <dl>
+                    <div><dt>Public ID</dt><dd>{selectedConcierge.publicId}</dd></div>
+                    <div><dt>Phone</dt><dd>{selectedConcierge.phone}</dd></div>
+                    <div><dt>Status</dt><dd>{selectedConcierge.active ? 'Active' : 'Inactive'}</dd></div>
+                  </dl>
+                </aside>
+              )}
+              <label className="field full-span">
+                <span>Default checkpoint list</span>
+                <textarea
+                  rows={8}
+                  value={checkpoints}
+                  onChange={(event) => setCheckpoints(event.target.value)}
+                />
+              </label>
+            </div>
+            <TripReviewPanel
+              flightNumber={flightNumber}
+              arrivalAirport={arrivalAirport}
+              arrivalTerminal={arrivalTerminal}
+              scheduledArrivalAt={scheduledArrivalAt}
+              meetingPoint={meetingPoint}
+              principalLabel={
+                principalMode === 'existing'
+                  ? selectedPrincipalRecord?.fullName ?? 'Selected principal'
+                  : principalName.trim() || 'Manual principal'
+              }
+              principalDetail={
+                principalMode === 'existing'
+                  ? selectedPrincipalRecord?.email
+                  : principalPhone.trim() || undefined
+              }
+              watcherCount={validWatchers.length}
+              conciergeLabel={selectedConcierge ? `${selectedConcierge.fullName} · ${selectedConcierge.publicId}` : 'Assign later'}
+              checkpointCount={checkpointNames.length}
+              onCreate={handleCreateTrip}
+              canSubmit={canSubmit}
+              isPending={createTrip.isPending}
+            />
           </section>
         )}
 
@@ -187,11 +300,7 @@ export function AdminTripCreatePage() {
           >
             Back
           </button>
-          {isAtLast ? (
-            <button className="primary-button" disabled={!canSubmit} type="button" onClick={handleCreateTrip}>
-              {createTrip.isPending ? 'Creating…' : 'Create trip'}
-            </button>
-          ) : (
+          {!isAtLast && (
             <button
               className="primary-button"
               disabled={!stepIsValid(step)}
@@ -205,6 +314,78 @@ export function AdminTripCreatePage() {
       </form>
     </>
   )
+}
+
+function TripReviewPanel({
+  flightNumber,
+  arrivalAirport,
+  arrivalTerminal,
+  scheduledArrivalAt,
+  meetingPoint,
+  principalLabel,
+  principalDetail,
+  watcherCount,
+  conciergeLabel,
+  checkpointCount,
+  onCreate,
+  canSubmit,
+  isPending,
+}: {
+  flightNumber: string
+  arrivalAirport: string
+  arrivalTerminal: string
+  scheduledArrivalAt: string
+  meetingPoint: string
+  principalLabel: string
+  principalDetail?: string
+  watcherCount: number
+  conciergeLabel: string
+  checkpointCount: number
+  onCreate: () => void
+  canSubmit: boolean
+  isPending: boolean
+}) {
+  return (
+    <section className="trip-review-panel">
+      <div className="subsection-heading">
+        <div>
+          <p className="eyebrow">Review</p>
+          <h3>Confirm and create</h3>
+        </div>
+        <span>{checkpointCount} checkpoints</span>
+      </div>
+      <dl className="compact-dl">
+        <div><dt>Flight</dt><dd>{flightNumber || 'Missing'}</dd></div>
+        <div>
+          <dt>Airport</dt>
+          <dd>{arrivalAirport || 'Missing'}{arrivalTerminal ? ` · ${arrivalTerminal}` : ''}</dd>
+        </div>
+        <div>
+          <dt>Scheduled</dt>
+          <dd>{scheduledArrivalAt ? shortDateTime(new Date(scheduledArrivalAt).toISOString()) : 'Not set'}</dd>
+        </div>
+        <div><dt>Meeting point</dt><dd>{meetingPoint || 'Not set'}</dd></div>
+        <div>
+          <dt>Principal</dt>
+          <dd>{principalLabel}{principalDetail ? ` · ${principalDetail}` : ''}</dd>
+        </div>
+        <div><dt>Watchers</dt><dd>{watcherCount === 0 ? 'None' : `${watcherCount} email recipient${watcherCount > 1 ? 's' : ''}`}</dd></div>
+        <div><dt>Concierge</dt><dd>{conciergeLabel}</dd></div>
+      </dl>
+      <button
+        className="primary-button trip-review-confirm"
+        disabled={!canSubmit}
+        type="button"
+        onClick={onCreate}
+      >
+        {isPending ? 'Creating…' : 'Create trip'}
+      </button>
+    </section>
+  )
+}
+
+function isValidWatcher(draft: WatcherDraft) {
+  return draft.fullName.trim().length > 0 && EMAIL_PATTERN.test(draft.email.trim())
 }
 
 function nextStep(step: Step): Step {

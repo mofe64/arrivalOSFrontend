@@ -536,4 +536,120 @@ npx vite --port 5180      # boots cleanly
 
 ---
 
-*Patch log end. Next: agree Sprint 2 scope (UX wins) with the team and pick up the backend follow-ups in parallel.*
+*Sprint 1 patch log end. See §15 below for Sprint 2.*
+
+---
+
+## 15. Patch Log — Sprint 2 (UX wins)
+
+All changes type-checked (`tsc --noEmit`), lint-clean (`eslint`), pass `vite build`, dev server boots and serves transformed routes.
+
+### 15.1 Bug fix — wizard auto-submits on step 4
+
+**Root cause:** Continue (step 3) and Create (step 4) buttons rendered at the same DOM position inside `.wizard-actions`. A slightly-double-clicked Continue: first click advanced state to `operations`, React re-mounted the button slot as Create, the second click of the double-tap landed on the freshly-mounted Create button and fired `createTrip.mutate()` before the user touched the concierge dropdown. Sprint 1's `canSubmit` gate didn't help — by the time step 4 was reached on the happy path, all preceding steps validated as true so Create was enabled on mount.
+
+**Companion bug:** Sprint 1 had also introduced a TDZ violation — `canSubmit` referenced `createTrip` before its `useMutation` declaration. Fixed in the rewrite by ordering mutation before derived state.
+
+**Fix:**
+- Step 4's footer now shows **Back only**. No primary action button in the footer at all.
+- Create button moved into a new `<TripReviewPanel>` inside step 4 content. The panel shows a read-only summary of every input (flight, airport, scheduled, meeting point, principal, watcher count, concierge, checkpoint count) above the Create button.
+- Different physical screen position → no race possible.
+- Bonus UX: the review summary lets ops confirm what they're about to create — aligns with "calm beats dramatic, precise" from the design context.
+
+Files: `src/routes/admin/AdminTripCreate.tsx` (rewritten), `src/index.css` (new `.trip-review-panel`, `.trip-review-confirm`, `.operations-step` styles).
+
+### 15.2 Multi-watcher support at create *(TC-5)*
+
+Trip-create step 3 now uses a repeating `<fieldset className="watcher-draft">` list. Add another / Remove per row. Empty rows are tolerated; only fully-valid rows (name + valid email) are submitted. Validation: a partially-filled row blocks the wizard with a single inline warning.
+
+**Multi-principal at create *(TC-3)* deferred** — the existing `PrincipalLinkFields` is single-instance; supporting N principals requires a row-component refactor or N instances with per-row mode state. The admin trip detail already supports adding more principals after creation, so the workflow is: create-with-one → link more on detail. Documented in the wizard's step 2 hint copy.
+
+Files: `src/routes/admin/AdminTripCreate.tsx`, `src/index.css` (new `.watcher-draft*` styles).
+
+### 15.3 Toast bus *(TM-12)*
+
+Seven inline `<ApiErrorMessage />` panels in `AdminTripDetail` collapsed into a single toast surface. Errors include the `ApiError` field-error detail and request ID. Success messages now appear too ("Watcher added", "Concierge assigned", "Trip cancelled"). Auto-dismiss 6s, click × to dismiss early.
+
+Added:
+- `src/components/toastContext.ts` — `ToastContext` + `useToast()` hook + `Toast` types (split into its own file to satisfy `react-refresh/only-export-components`).
+- `src/components/Toast.tsx` — `ToastProvider` + viewport. Bottom-right stack, 4-px left-border kind indicator (blue = info, green = success, red = error), navy soft-blur backdrop animation on enter, `aria-live="polite"` region.
+
+Wired:
+- `src/App.tsx` — `<ToastProvider>` wraps the router so toasts work app-wide.
+- `src/routes/admin/AdminTripDetail.tsx` — every mutation now has `onSuccess` + `onError` calling `toast.pushSuccess` / `toast.pushError`. Removed five inline `<ApiErrorMessage error={…} />` slots and the `*Error` props on `AdminActions`.
+
+The page-level `tripQuery.error` panel was kept inline (it is a terminal render failure, not a transient action error).
+
+### 15.4 Optimistic timeline event updates *(TM-8)*
+
+`addEvent` mutation now uses `onMutate` to optimistically insert the new event into the trip cache before the network round-trip. `onError` restores the previous cache snapshot AND raises a toast. `onSuccess` invalidates queries to pick up the server-canonical version.
+
+Optimistic events are rendered with `data-pending="true"` on the `<li>` — they show at 62% opacity with a grey timeline dot and a small "Saving…" tag next to the event label. No new icons; no animation beyond the existing fade pattern.
+
+Files: `src/routes/admin/AdminTripDetail.tsx`, `src/components/ArrivalComponents.tsx`, `src/index.css` (`.timeline-item[data-pending='true']`, `.timeline-pending-tag`).
+
+### 15.5 Concierge → principal call/SMS shortcuts *(CT-6)*
+
+When the principal record has a phone, the concierge focus panel now shows a 2-up button row:
+- **Call principal** — primary, `tel:` link with non-digit characters stripped.
+- **Send SMS** — secondary, `sms:` link.
+
+On phones <480px the row stacks to full-width single-column for one-handed use (matches the "one-handed phone use" rule in the design context's accessibility section).
+
+Files: `src/routes/concierge/ConciergeTripPage.tsx`, `src/index.css` (`.principal-contact-row`).
+
+### 15.6 Files added/modified in Sprint 2
+
+| Action | File |
+|---|---|
+| **Added** | `src/components/Toast.tsx` |
+| **Added** | `src/components/toastContext.ts` |
+| **Rewritten** | `src/routes/admin/AdminTripCreate.tsx` (~330 LOC, was ~160) |
+| **Modified** | `src/routes/admin/AdminTripDetail.tsx` — toast wiring, optimistic addEvent, prop cleanup |
+| **Modified** | `src/routes/concierge/ConciergeTripPage.tsx` — `PrincipalContactRow` |
+| **Modified** | `src/components/ArrivalComponents.tsx` — optimistic pending state on `TimelineItem` |
+| **Modified** | `src/App.tsx` — `<ToastProvider>` wrap |
+| **Modified** | `src/index.css` — watcher-draft, trip-review-panel, toast viewport, timeline pending, principal-contact-row |
+
+Bundle delta: CSS 26.5 → 29.4 KB (+2.9 KB), JS 385 → 391 KB (+6 KB). All under the noise floor.
+
+### 15.7 What did NOT ship in Sprint 2 (still backlog)
+
+| Item | Why deferred |
+|---|---|
+| TC-3 — multiple principals at create | Needs PrincipalLinkFields refactor; workaround (add via detail page) exists |
+| TM-4 — edit flight details inline | Backend has no PATCH endpoint |
+| TM-5 — remove watcher/principal | Backend has no DELETE endpoints |
+| CT-8 — "what the principal sees" preview | Needs principal-safe events filter endpoint |
+| AA-8 — batched notification attempts | Backend N+1 — needs aggregated endpoint |
+| §4.4 — demo-data banner | Carried from Sprint 1 backend list; small frontend item bundled with next sprint |
+| §4.5 — HttpOnly cookie auth | Backend |
+
+### 15.8 Risk notes for the team
+
+- **TripStatusBand metadata still references the trip header**, so optimistic events do **not** advance the band's status label until the server response comes back. This is intentional: optimistic events represent intent, not state. If the backend returns a different status (e.g. duplicate detection), the band stays canonical.
+- **Optimistic event IDs start with `optimistic-`** — backend must not emit IDs starting with that string. Today IDs are UUIDs so collision is impossible, but worth a sentence in API docs.
+- **Toast auto-dismiss is 6s** — long enough to read 2 lines, short enough not to stack indefinitely. If ops complain, raise to 8s in `Toast.tsx`.
+- **Wizard step 4 footer change is visible** — anyone trained to "click the big blue button bottom-right to create" will now find no button there; they must scroll to the Review panel. Communicate in release notes.
+- **Watcher draft list always shows ≥1 row** — removing the last row recreates an empty one. Avoids the "no inputs visible" empty state.
+
+### 15.9 Verify commands (run from `arrivalOSFrontend/frontend`)
+
+```bash
+npx tsc --noEmit          # 0 errors
+npx eslint src            # 0 errors
+npx vite build            # 137ms, 29.4KB CSS, 391KB JS
+npx vite --port 5180      # ready in ~150ms, serves transformed routes (curl-verified)
+```
+
+### 15.10 Manual test plan for QA
+
+1. **Wizard auto-submit regression**: open `/admin/trips/new`, fill steps 1–3 with valid data, double-click Continue on step 3. Expect: page lands on step 4 (operations) with NO trip created. Concierge dropdown is interactable. Create button lives in the bottom Review panel.
+2. **Multi-watcher**: on step 3, click "Add another watcher" thrice, fill two rows, leave one empty. Click Continue → expect no validation error. Create the trip. Expect two watchers on the detail page.
+3. **Toast bus**: on a trip detail, submit a timeline event without a checkpoint name (when checkpoint required) — expect a red toast. Cancel a trip — expect a green "Trip cancelled" toast.
+4. **Optimistic timeline**: throttle network to "Slow 3G". Submit a timeline event. Expect the event to appear immediately at 62% opacity with "Saving…" tag, then settle to full opacity when the request resolves.
+5. **Concierge call/SMS**: open a concierge link on a real phone (Android or iOS). Expect "Call principal" and "Send SMS" buttons. Tap "Call principal" — expect the dialer to open with the principal's number pre-filled.
+
+---
+
+*Sprint 2 patch log end. Next: Sprint 3 (visual rebuild — type scale, eyebrow pruning, status-band height) once design has signed off on the type scale.*

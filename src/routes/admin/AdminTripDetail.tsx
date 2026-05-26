@@ -3,7 +3,7 @@ import { useParams } from '@tanstack/react-router'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { adminApi } from '../../api/arrivalos'
 import { withFixtureFallback } from '../../api/fallback'
-import type { AdminPrincipalSummary, Concierge, ConciergeAccessLink, TimelineEventType, TripPrincipal, TripStatus } from '../../api/types'
+import type { AdminPrincipalSummary, AdminTripDetail, Concierge, ConciergeAccessLink, TimelineEvent, TimelineEventType, TripPrincipal, TripStatus } from '../../api/types'
 import { fixtureAdminTripDetail } from '../../data/fixtures'
 import {
   CheckpointTimeline,
@@ -17,11 +17,13 @@ import { ApiErrorMessage, LoadingState } from '../../components/Primitives'
 import { shortDateTime, statusLabel } from '../../components/format'
 import { eventOptions, isClosedStatus, nextEventForStatus } from '../../components/tripFlow'
 import { toFragmentLink } from '../../api/accessToken'
+import { useToast } from '../../components/toastContext'
 import { PrincipalLinkFields, type PrincipalEntryMode } from './PrincipalLinkFields'
 
 export function AdminTripDetailPage() {
   const { tripId } = useParams({ from: '/admin/trips/$tripId' })
   const queryClient = useQueryClient()
+  const toast = useToast()
   const tripQuery = useQuery({
     queryKey: ['admin', 'trip', tripId],
     queryFn: () => withFixtureFallback(() => adminApi.trip(tripId), { ...fixtureAdminTripDetail, id: tripId }),
@@ -39,31 +41,78 @@ export function AdminTripDetailPage() {
     void queryClient.invalidateQueries({ queryKey: ['admin', 'trip', tripId] })
     void queryClient.invalidateQueries({ queryKey: ['admin', 'notifications'] })
     void queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard'] })
+    void queryClient.invalidateQueries({ queryKey: ['admin', 'trips'] })
   }
 
+  const tripKey = ['admin', 'trip', tripId]
   const addEvent = useMutation({
     mutationFn: ({ eventType, note, checkpointName }: { eventType: TimelineEventType; note?: string; checkpointName?: string }) =>
       adminApi.addTimelineEvent(tripId, eventType, note, checkpointName),
-    onSuccess: invalidateTrip,
+    onMutate: async ({ eventType, note, checkpointName }) => {
+      await queryClient.cancelQueries({ queryKey: tripKey })
+      const previous = queryClient.getQueryData<AdminTripDetail>(tripKey)
+      if (previous) {
+        const optimisticEvent: TimelineEvent = {
+          id: `optimistic-${crypto.randomUUID()}`,
+          eventType,
+          actorType: 'OPS',
+          note,
+          checkpointName: checkpointName ?? null,
+          occurredAt: new Date().toISOString(),
+        }
+        queryClient.setQueryData<AdminTripDetail>(tripKey, {
+          ...previous,
+          timelineEvents: [...previous.timelineEvents, optimisticEvent],
+          lastUpdatedAt: optimisticEvent.occurredAt,
+        })
+      }
+      return { previous }
+    },
+    onSuccess: (response) => {
+      invalidateTrip()
+      if (!response?.duplicate) toast.pushSuccess('Timeline updated')
+    },
+    onError: (error, _variables, context) => {
+      if (context?.previous) queryClient.setQueryData(tripKey, context.previous)
+      toast.pushError('Could not record timeline event', error)
+    },
   })
   const addWatcher = useMutation({
     mutationFn: (payload: { fullName: string; email: string }) => adminApi.addWatcher(tripId, { ...payload, notificationChannel: 'EMAIL' }),
-    onSuccess: invalidateTrip,
+    onSuccess: (watcher) => {
+      invalidateTrip()
+      toast.pushSuccess('Watcher added', `${watcher.fullName} will receive email updates.`)
+    },
+    onError: (error) => toast.pushError('Could not add watcher', error),
   })
   const addPrincipal = useMutation({
     mutationFn: (payload: { fullName?: string; phone?: string; userAccountId?: string }) => adminApi.addPrincipal(tripId, payload),
-    onSuccess: invalidateTrip,
+    onSuccess: () => {
+      invalidateTrip()
+      toast.pushSuccess('Principal linked to trip')
+    },
+    onError: (error) => toast.pushError('Could not link principal', error),
   })
   const assign = useMutation({
     mutationFn: (conciergeId: string) => adminApi.assignConcierge(tripId, conciergeId),
-    onSuccess: invalidateTrip,
+    onSuccess: () => {
+      invalidateTrip()
+      toast.pushSuccess('Concierge assigned')
+    },
+    onError: (error) => toast.pushError('Could not assign concierge', error),
   })
   const accessLink = useMutation({
     mutationFn: (conciergeId: string) => adminApi.createConciergeAccessLink(tripId, conciergeId),
+    onSuccess: () => toast.pushSuccess('Access link issued', 'Copy the link to share with the concierge.'),
+    onError: (error) => toast.pushError('Could not issue access link', error),
   })
   const cancel = useMutation({
     mutationFn: (note: string) => adminApi.cancelTrip(tripId, note),
-    onSuccess: invalidateTrip,
+    onSuccess: () => {
+      invalidateTrip()
+      toast.pushSuccess('Trip cancelled', 'The timeline is closed and watchers have been notified.')
+    },
+    onError: (error) => toast.pushError('Could not cancel trip', error),
   })
 
   if (tripQuery.isLoading) return <LoadingState />
@@ -126,19 +175,14 @@ export function AdminTripDetailPage() {
         <AdminActions
           addEvent={(eventType, note, checkpointName) => addEvent.mutate({ eventType, note, checkpointName })}
           addEventPending={addEvent.isPending}
-          addEventError={addEvent.error}
           addPrincipal={(payload) => addPrincipal.mutate(payload)}
-          addPrincipalError={addPrincipal.error}
           availablePrincipals={availablePrincipals}
           principalDirectoryError={principalsQuery.error}
           principalDirectoryLoading={principalsQuery.isLoading}
           addWatcher={(payload) => addWatcher.mutate(payload)}
-          addWatcherError={addWatcher.error}
           assignConcierge={(conciergeId) => assign.mutate(conciergeId)}
-          assignError={assign.error}
           assignPending={assign.isPending}
           cancelTrip={(note) => cancel.mutate(note)}
-          cancelError={cancel.error}
           cancelPending={cancel.isPending}
           conciergeId={trip.concierge?.id}
           flightNumber={trip.flightNumber}
@@ -146,7 +190,6 @@ export function AdminTripDetailPage() {
           currentCheckpointName={trip.currentCheckpoint?.name}
           disabled={closed}
           issueAccessLink={(conciergeId) => accessLink.mutate(conciergeId)}
-          issueAccessLinkError={accessLink.error}
           issueAccessLinkPending={accessLink.isPending}
           accessLink={accessLink.data}
           principals={trip.principals}
@@ -176,19 +219,14 @@ export function AdminTripDetailPage() {
 function AdminActions({
   addEvent,
   addEventPending,
-  addEventError,
   addPrincipal,
-  addPrincipalError,
   availablePrincipals,
   principalDirectoryError,
   principalDirectoryLoading,
   addWatcher,
-  addWatcherError,
   assignConcierge,
-  assignError,
   assignPending,
   cancelTrip,
-  cancelError,
   cancelPending,
   conciergeId,
   concierges,
@@ -196,7 +234,6 @@ function AdminActions({
   disabled,
   flightNumber,
   issueAccessLink,
-  issueAccessLinkError,
   issueAccessLinkPending,
   accessLink,
   principals,
@@ -204,19 +241,14 @@ function AdminActions({
 }: {
   addEvent: (eventType: TimelineEventType, note?: string, checkpointName?: string) => void
   addEventPending: boolean
-  addEventError: unknown
   addPrincipal: (payload: { fullName?: string; phone?: string; userAccountId?: string }) => void
-  addPrincipalError: unknown
   availablePrincipals: AdminPrincipalSummary[]
   principalDirectoryError: unknown
   principalDirectoryLoading: boolean
   addWatcher: (payload: { fullName: string; email: string }) => void
-  addWatcherError: unknown
   assignConcierge: (conciergeId: string) => void
-  assignError: unknown
   assignPending: boolean
   cancelTrip: (note: string) => void
-  cancelError: unknown
   cancelPending: boolean
   conciergeId?: string
   concierges: Concierge[]
@@ -224,7 +256,6 @@ function AdminActions({
   disabled: boolean
   flightNumber: string
   issueAccessLink: (conciergeId: string) => void
-  issueAccessLinkError: unknown
   issueAccessLinkPending: boolean
   accessLink?: ConciergeAccessLink
   principals: TripPrincipal[]
@@ -300,7 +331,6 @@ function AdminActions({
       </div>
       {disabled && <p className="warning-note">This trip is closed. Operational mutations are disabled.</p>}
       <form className="stack-form timeline-action-form" onSubmit={submitEvent}>
-        <ApiErrorMessage error={addEventError} />
         <label className="field">
           <span>Timeline event {suggestedEvent ? `(suggested: ${suggestedEvent.label})` : ''}</span>
           <select value={eventType} onChange={(event) => setEventType(event.target.value as TimelineEventType)}>
@@ -328,7 +358,6 @@ function AdminActions({
         <details className="command-disclosure">
           <summary>Add or link another principal</summary>
           <div className="command-disclosure-body">
-            <ApiErrorMessage error={addPrincipalError} />
             <PrincipalLinkFields
               availablePrincipals={availablePrincipals}
               disabled={disabled}
@@ -363,8 +392,6 @@ function AdminActions({
           </div>
           <span>{assignedConcierge?.publicId ?? 'Unassigned'}</span>
         </div>
-        <ApiErrorMessage error={assignError} />
-        <ApiErrorMessage error={issueAccessLinkError} />
         <div className="concierge-assignment-grid">
           <label className="field">
             <span>Operator record</span>
@@ -398,7 +425,6 @@ function AdminActions({
           </div>
         </div>
         <div className="inline-form">
-          <ApiErrorMessage error={addWatcherError} />
           {watcherValidation && <p className="warning-note">{watcherValidation}</p>}
           <input aria-label="Watcher name" placeholder="Recipient name" value={watcherName} onChange={(event) => setWatcherName(event.target.value)} />
           <input aria-label="Watcher email" placeholder="Email address" type="email" value={watcherEmail} onChange={(event) => setWatcherEmail(event.target.value)} />
@@ -413,7 +439,6 @@ function AdminActions({
           <button className="secondary-button" type="button" onClick={copyAccessLink}>Copy link</button>
         </div>
       )}
-      <ApiErrorMessage error={cancelError} />
       <CancelTripDialog
         disabled={disabled}
         flightNumber={flightNumber}

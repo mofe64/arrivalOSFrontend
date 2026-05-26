@@ -73,13 +73,15 @@ export function TimelineFeed({
 }
 
 export function TimelineItem({ event }: { event: TimelineEvent }) {
+  const pending = event.id.startsWith('optimistic-')
   return (
-    <li className="timeline-item">
+    <li className="timeline-item" data-pending={pending ? 'true' : undefined}>
       <span className="timeline-dot" aria-hidden="true" />
       <div>
         <p>
           <strong>{eventLabel(event.eventType)}</strong>
           {event.checkpointName && <span>{event.checkpointName}</span>}
+          {pending && <span className="timeline-pending-tag">Saving…</span>}
         </p>
         <small>
           {shortDateTime(event.occurredAt)} · {actorLabel(event.actorType)}
